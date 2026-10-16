@@ -144,7 +144,7 @@ export async function getArticle(id: number, opts: { countView?: boolean } = {})
 export async function attachmentsOf(id: number) {
   return sql<{ id: number; filename: string; media_type: string; size: number; is_image: boolean; stored: boolean }[]>`
     SELECT a.id, a.filename, a.media_type, a.size, a.is_image,
-           EXISTS (SELECT 1 FROM sb.kb_files f WHERE f.attachment_id = a.id) AS stored
+           (a.storage_path IS NOT NULL OR EXISTS (SELECT 1 FROM sb.kb_files f WHERE f.attachment_id = a.id)) AS stored
     FROM sb.kb_attachments a WHERE a.article_id = ${id} ORDER BY a.is_image, a.filename`;
 }
 

@@ -361,3 +361,18 @@ CREATE TABLE IF NOT EXISTS kb_files (
   data          bytea   NOT NULL,
   sha256        varchar(64) NOT NULL
 );
+
+-- Dropbox(회사 지원팀 계정 — tw-automation 과 같은 것) — 첨부 파일을 /TA FAQ 아래에 둔다.
+-- 앱 키 · 시크릿 · refresh token 은 Fernet 암호문(FERNET_KEY). 한 줄(id = 1)만 쓴다.
+CREATE TABLE IF NOT EXISTS dropbox_credentials (
+  id                      integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  encrypted_app_key       text NOT NULL,
+  encrypted_app_secret    text NOT NULL,
+  encrypted_refresh_token text NOT NULL,
+  root_path               text NOT NULL DEFAULT '/TA FAQ',
+  updated_at              timestamptz NOT NULL DEFAULT now()
+);
+
+-- 첨부의 Dropbox 임시 링크(4시간) — 볼 때마다 Dropbox 에 묻지 않게 잠깐 둔다.
+ALTER TABLE kb_attachments ADD COLUMN IF NOT EXISTS link_cache   text;
+ALTER TABLE kb_attachments ADD COLUMN IF NOT EXISTS link_expires timestamptz;
