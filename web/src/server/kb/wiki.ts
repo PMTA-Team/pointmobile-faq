@@ -105,20 +105,18 @@ async function runTool(name: string, input: unknown, searches: Search[], seen: M
     const r = await searchArticles({ q: p.data.query, product: p.data.product, kind: p.data.kind, limit: p.data.limit ?? 6 });
     searches.push({ tool: name, input: p.data, ids: r.items.map((h) => h.id) });
     if (!r.items.length) return [{ type: "text", text: `"${p.data.query}" 로 찾은 문서가 없습니다. 다른 표현(영어 · 모델 코드 · 기능 이름)으로 다시 찾아보세요.` }];
-    const head: Anthropic.Beta.BetaTextBlockParam = {
-      type: "text",
-      text: `${r.total}건 중 상위 ${r.items.length}건${r.loose ? " (모든 단어가 든 문서가 없어 일부 단어만 맞는 결과)" : ""}. 답에 쓰려면 get_faq 로 전문을 읽으세요.`,
-    };
-    return [head, ...r.items.map((h): Anthropic.Beta.BetaSearchResultBlockParam => {
+    // 도구 결과에 search_result 가 하나라도 있으면 모두 search_result 여야 한다 — 건수 안내는 첫 결과의 정보 줄에 붙인다.
+    const head = `검색 결과 ${r.total}건 중 상위 ${r.items.length}건${r.loose ? "(모든 단어가 든 문서가 없어 일부 단어만 맞는 결과)" : ""}. 답에 쓰려면 get_faq 로 전문을 읽으세요.`;
+    return r.items.map((h, i): Anthropic.Beta.BetaSearchResultBlockParam => {
       seen.set(h.id, { title: h.title, disclosure: h.disclosure });
       const meta = `id ${h.id} · ${KINDS[h.kind] ?? h.kind} · 공개 등급 ${h.disclosure}${h.applies_to ? ` · Applies to: ${h.applies_to}` : ""}`
         + `${h.products.length ? ` · 모델 ${h.products.join(", ")}` : ""}${h.redmine_issue_ids.length ? ` · Redmine #${h.redmine_issue_ids.join(", #")}` : ""}`
         + ` · 수정 ${h.updated_at.slice(0, 10)}`;
       return {
         type: "search_result", source: source(h.id), title: h.title, citations: { enabled: true },
-        content: [{ type: "text", text: meta }, { type: "text", text: strip(h.snippets.join(" … ")) || "(발췌 없음)" }],
+        content: [{ type: "text", text: i === 0 ? `${head}\n${meta}` : meta }, { type: "text", text: strip(h.snippets.join(" … ")) || "(발췌 없음)" }],
       };
-    })];
+    });
   }
   if (name === "get_faq") {
     const p = GetIn.safeParse(input);
