@@ -3,6 +3,7 @@
 backend/.env
 .env*.local
 web/.env*.local
+web/.env.supabase
 # 실행물
 backend/.venv/
 web/node_modules/
