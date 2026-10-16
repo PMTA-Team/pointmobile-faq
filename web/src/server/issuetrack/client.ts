@@ -5,6 +5,7 @@
  * Redmine 에 쓰기를 시도하는 코드가 실수로도 생기지 않게.
  */
 import { getWebConfig } from "../creds";
+import { memo } from "../memo";
 
 export const TARGET = "redmine";
 export const PROJECT = process.env.TW_REDMINE_PROJECT || "salesissue";
@@ -41,7 +42,7 @@ export async function baseUrl(): Promise<string> {
 export async function issueUrlMaker(): Promise<(id: number) => string> {
   let base = "";
   try {
-    base = await baseUrl();
+    base = await memo("redmine:base", 600_000, baseUrl);     // 자격증명 표를 매번 읽지 않게 10분 기억
   } catch {
     base = "";
   }

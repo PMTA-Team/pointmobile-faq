@@ -1,13 +1,14 @@
 /**
  * 로그인 세션 — 서명된 쿠키(sbn_session, 12시간). 쿠키에는 로그인한 순간의 {id, username, role} 만 있다.
  *
- * 그 뒤 계정이 지워지거나 반려 · 역할 변경되면 쿠키만으로는 모르므로, 요청마다 계정을 다시 읽어
- * **승인된 계정**인지와 지금 역할을 확인한다(예전 api/common.py 와 같다).
+ * 그 뒤 계정이 지워지거나 반려 · 역할 변경되면 쿠키만으로는 모르므로, 계정을 다시 읽어
+ * **승인된 계정**인지와 지금 역할을 확인한다. 읽은 값은 30초 기억한다(바꾼 자리에서는 바로 지운다).
  */
 import { cookies } from "next/headers";
 import { jwtVerify, SignJWT } from "jose";
 import { sql } from "./db";
 import { HttpError } from "./http";
+import { forget, memo } from "./memo";
 
 export type SessionUser = { id: number; username: string; role: string };
 
@@ -56,8 +57,9 @@ async function readCookie(): Promise<SessionUser | null> {
 export async function requireUser(): Promise<SessionUser> {
   const u = await readCookie();
   if (!u) throw new HttpError(401, "로그인이 필요합니다");
-  const [row] = await sql<{ id: number; username: string; role: string; status: string }[]>`
-    SELECT id, username, role, status FROM sb.users WHERE id = ${u.id}`;
+  // 계정 상태는 30초 기억한다 — 요청마다 DB 에 묻지 않게. 승인 · 역할 · 삭제를 바꾸면 forgetUser() 로 바로 지운다.
+  const [row] = await memo(`user:${u.id}`, 30_000, () => sql<{ id: number; username: string; role: string; status: string }[]>`
+    SELECT id, username, role, status FROM sb.users WHERE id = ${u.id}`);
   if (!row || row.status !== "approved") {
     await clearSession();
     throw new HttpError(401, "로그인이 필요합니다");
@@ -65,6 +67,11 @@ export async function requireUser(): Promise<SessionUser> {
   const now = { id: row.id, username: row.username, role: row.role };
   if (now.role !== u.role || now.username !== u.username) await setSession(now);
   return now;
+}
+
+/** 계정을 바꾼 뒤 — 이 인스턴스가 기억한 계정 상태를 지운다. */
+export function forgetUser(id?: number): void {
+  forget(id ? `user:${id}` : "user:");
 }
 
 /** 관리자만. */

@@ -1,6 +1,7 @@
 import { encryptSecret } from "@/server/crypto";
 import { sql } from "@/server/db";
 import { bad, body, param, route } from "@/server/http";
+import { forget } from "@/server/memo";
 import { requireAdmin } from "@/server/session";
 import { sharedUid, WEB_FIXED } from "../../../_shared";
 
@@ -32,5 +33,6 @@ export const POST = route(async (req, ctx) => {
       UPDATE sb.web_credentials SET base_url = ${cfg.base_url}, username = ${username}, updated_at = now()
       WHERE user_id = ${sid} AND target = ${target}`;
   }
+  forget("redmine:");
   return { ok: true, message: `${cfg.label} 계정을 저장했습니다` };
 });

@@ -3,6 +3,7 @@
  * 같은 이슈가 다시 열렸다가 해결돼 새 판을 확정하면, 예전 판의 FAQ 문서는 보관(archived)으로 돌린다.
  */
 import { sql } from "../db";
+import { forget } from "../memo";
 import { issueUrlMaker } from "../issuetrack/client";
 import { htmlToText, products } from "./text";
 
@@ -28,6 +29,7 @@ export async function publishSbDoc(docId: number): Promise<number | null> {
       body_html = EXCLUDED.body_html, body_text = EXCLUDED.body_text, source_url = EXCLUDED.source_url, state = 'published',
       author = EXCLUDED.author, approved_by = EXCLUDED.approved_by, approved_at = EXCLUDED.approved_at, updated_at = now()
     RETURNING id`;
+  forget("faq:");      // FAQ 검색 · 문서 기억을 지워 바로 보이게
   // 같은 이슈의 예전 판 — 이 앱에서 확정한 것만(Confluence 이관분은 사람이 판단할 기록이라 그대로 둔다)
   await sql`
     UPDATE sb.kb_articles SET state = 'archived', updated_at = now()
@@ -38,4 +40,5 @@ export async function publishSbDoc(docId: number): Promise<number | null> {
 /** 확정 취소 — FAQ 에서 내린다(지우지 않는다: 열람 · 평가 기록이 남는다). */
 export async function unpublishSbDoc(docId: number): Promise<void> {
   await sql`UPDATE sb.kb_articles SET state = 'archived', updated_at = now() WHERE sb_doc_id = ${docId}`;
+  forget("faq:");
 }

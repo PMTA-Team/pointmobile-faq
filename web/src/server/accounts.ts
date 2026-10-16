@@ -6,6 +6,7 @@
  */
 import { hashPassword } from "./crypto";
 import { sql } from "./db";
+import { forget } from "./memo";
 
 /** 관리자가 초기화한 계정의 비밀번호. 첫 로그인에서 바꾸게 한다. */
 export const INITIAL_PASSWORD = "1234";
@@ -58,6 +59,7 @@ export async function requestSignup(
       UPDATE sb.users SET password_hash = ${hash}, company = ${company}, email = ${email}, status = 'pending',
         must_change_password = false, requested_at = now(), decided_by = '', decided_at = NULL, reject_reason = ''
       WHERE id = ${u.id}`;
+    forget(`user:${u.id}`);
     id = u.id;
   } else {
     const [r] = await sql<{ id: number }[]>`
@@ -81,6 +83,7 @@ export async function decideSignup(userId: number, approve: boolean, by: string,
   const status = approve ? APPROVED : REJECTED;
   const rr = approve ? "" : reason;
   await sql`UPDATE sb.users SET status = ${status}, decided_by = ${by}, decided_at = now(), reject_reason = ${rr} WHERE id = ${userId}`;
+  forget(`user:${userId}`);
   return [true, `'${u.username}' 가입을 ${approve ? "승인" : "반려"}했습니다.`, { username: u.username, company: u.company, email: u.email, reason: rr }];
 }
 
@@ -112,6 +115,7 @@ export async function setUserRole(targetId: number, role: string): Promise<[bool
   if (u.role === "admin" && role !== "admin" && (await adminCount(targetId)) === 0)
     return [false, "마지막 관리자는 권한을 낮출 수 없습니다. 다른 관리자를 먼저 지정하세요."];
   await sql`UPDATE sb.users SET role = ${role} WHERE id = ${targetId}`;
+  forget(`user:${targetId}`);
   return [true, `'${u.username}' 을(를) ${ROLE_LABEL[role]}(으)로 변경했습니다.`];
 }
 
@@ -122,5 +126,6 @@ export async function deleteUser(targetId: number, actingId: number): Promise<[b
   if (!u) return [false, "계정을 찾을 수 없습니다."];
   if (u.role === "admin" && (await adminCount(targetId)) === 0) return [false, "마지막 관리자는 삭제할 수 없습니다."];
   await sql`DELETE FROM sb.users WHERE id = ${targetId}`;
+  forget(`user:${targetId}`);
   return [true, `'${u.username}' 계정을 삭제했습니다.`];
 }
