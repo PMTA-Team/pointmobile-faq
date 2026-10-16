@@ -73,7 +73,8 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1     # 3070 + 5분 주
 
 ## Claude
 
-API 키(`ANTHROPIC_API_KEY`)로 부른다. 기본 모델 `claude-opus-5-5`(`SB_MODEL`), 생각 깊이 `medium`(`SB_EFFORT`).
+API 키(`ANTHROPIC_API_KEY`)로 부른다. SB 초안은 `claude-opus-5-5`(`SB_MODEL`), 생각 깊이 `medium`(`SB_EFFORT`).
+LLM Wiki 는 `claude-haiku-5-5`(`WIKI_MODEL`) — 질문마다 검색 · 읽기를 여러 번 하므로 빠르고 싼 모델로. Haiku 에는 서버 측 대체 모델(fallbacks)이 없어 끈다.
 정책 거절에 대비해 서버 측 대체 모델(`fallbacks: "default"`)을 켰다. 호출마다 사용량 · 추정 비용을 `sb.token_usage` 에 남긴다.
 예전 앱의 '구독(이 PC 의 Claude Code)' 경로는 웹 서버에 Claude Code 가 없어 없앴다.
 

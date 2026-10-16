@@ -11,7 +11,10 @@ import { sql } from "../db";
 import { recordUsage } from "../usage";
 import { getArticle, KINDS, searchArticles } from "./search";
 
-const MODEL = process.env.WIKI_MODEL || process.env.SB_MODEL || "claude-opus-5-5";
+// LLM Wiki 는 Haiku — 빠르고 싸다(질문마다 검색 · 읽기를 여러 번 한다). SB 초안 모델(SB_MODEL)과 따로 정한다.
+const MODEL = process.env.WIKI_MODEL || "claude-haiku-5-5";
+// 서버 측 대체 모델(fallbacks)은 Haiku 에는 없다 — 목록으로 주면 400, "default" 는 효과가 없다. 다른 모델일 때만 켠다.
+const USE_FALLBACK = !/haiku/i.test(MODEL);
 const EFFORT = (process.env.WIKI_EFFORT || "medium") as "low" | "medium" | "high" | "xhigh" | "max";
 const MAX_ROUNDS = 6;
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
@@ -163,8 +166,7 @@ export async function answer(opts: {
         ...(lastRound ? {} : { tools }),
         messages,
         output_config: { effort: EFFORT },
-        betas: [FALLBACK_BETA],
-        fallbacks: "default",
+        ...(USE_FALLBACK ? { betas: [FALLBACK_BETA], fallbacks: "default" as const } : {}),
       }, { signal: opts.signal });
       stream.on("text", (delta) => opts.emit({ type: "text", delta }));
       const msg = await stream.finalMessage();
