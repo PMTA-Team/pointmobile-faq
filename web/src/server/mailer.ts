@@ -237,9 +237,13 @@ export async function verifySmtp(host: string, port: number, user: string, pass:
   }
 }
 
-/** 시스템 안내 메일 발송. [성공, 오류사유]. 검증 모드면 기록만 하고 [true, ""]. */
-export async function sendAsUser(userId: number, to: string | string[], subject: string, body: string): Promise<[boolean, string]> {
-  if (await shadow.blocked("mail", "send", { user_id: userId, to, subject, body })) return [true, ""];
+/**
+ * 시스템 안내 메일 발송. [성공, 오류사유]. 검증 모드면 기록만 하고 [true, ""].
+ * html: 다 만든 HTML 본문(mailHtml.ts 의 기능별 양식). 주면 그대로 싣고 개인 서명은 붙이지 않는다 — 평문(body)은 함께 실린다.
+ */
+export async function sendAsUser(userId: number, to: string | string[], subject: string, body: string,
+  opts: { html?: string } = {}): Promise<[boolean, string]> {
+  if (await shadow.blocked("mail", "send", { user_id: userId, to, subject, body, html: opts.html ? "(HTML 양식)" : "" })) return [true, ""];
   const ident = await relayIdentity(userId);
   if (!ident) return [false, "발송 계정 미등록 — [계정 관리]에서 본인 이메일 자격증명을 등록하세요."];
   const tos = (Array.isArray(to) ? to : [to]).map((t) => (t || "").trim()).filter(Boolean);
@@ -253,7 +257,7 @@ export async function sendAsUser(userId: number, to: string | string[], subject:
     replyTo = sysReply || (await systemAdminEmails())[0] || ident.email;
   } else {
     const [pfAddr, pfName, sig] = await senderProfile(userId);
-    showFrom = pfAddr || ident.email; showName = pfName; signature = sig; replyTo = "";
+    showFrom = pfAddr || ident.email; showName = pfName; signature = opts.html ? "" : sig; replyTo = "";
   }
 
   const seen = new Set([...tos.map((t) => t.toLowerCase()), showFrom.toLowerCase()]);
@@ -274,7 +278,7 @@ export async function sendAsUser(userId: number, to: string | string[], subject:
       replyTo: replyTo || undefined,
       subject,
       text: plain,
-      html: buildHtmlMail(body, signature),
+      html: opts.html || buildHtmlMail(body, signature),
       // 봉투 발신자(Return-Path)는 실제 계정 — From 만 시스템 주소로 바꾼다.
       envelope: { from: ident.email, to: [...tos, ...cc] },
       messageId: `<${Date.now()}.${Math.random().toString(36).slice(2)}@${domain}>`,

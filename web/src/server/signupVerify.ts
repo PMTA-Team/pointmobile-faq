@@ -11,7 +11,8 @@ import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { EMAIL_RE, ID_RE, likeExact } from "./accounts";
 import { sha256 } from "./crypto";
 import { sql } from "./db";
-import { sendAsUser, systemSenderUserId } from "./mailer";
+import { appUrl, sendAsUser, systemSenderUserId } from "./mailer";
+import { signupCodeHtml } from "./mailHtml";
 import { render } from "./mailTemplates";
 
 export const CODE_TTL_SEC = 10 * 60;
@@ -87,7 +88,7 @@ export async function sendCode(email: string): Promise<[boolean, string]> {
   if (sender == null) return [false, "메일 발송 계정이 설정되지 않아 보낼 수 없습니다"];
   const mins = `${Math.floor(CODE_TTL_SEC / 60)}분`;
   const [subject, body] = await render("signup_email_code", { 인증번호: code, 유효시간: mins });
-  const [sent, err] = await sendAsUser(sender, e, subject, body);
+  const [sent, err] = await sendAsUser(sender, e, subject, body, { html: signupCodeHtml({ code, minutes: Math.floor(CODE_TTL_SEC / 60), appUrl: appUrl() }) });
   if (!sent) return [false, `인증 메일을 보내지 못했습니다 — ${err}`];
   return [true, `${e} 로 인증번호를 보냈습니다. ${mins} 안에 입력하세요`];
 }

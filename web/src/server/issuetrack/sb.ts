@@ -411,7 +411,17 @@ export async function notify(docId: number): Promise<{ sent: boolean; error?: st
     대신보냄: fallback ? `\n※ 담당자(${assignee}) 메일 주소를 규칙으로 만들지 못해 관리자에게 대신 보냅니다.\n` : "",
     화면주소: `${appUrl()}/`,
   });
-  const [ok, err] = await sendAsUser(uid, to, mailSubject, body);
+  const { sbReviewHtml } = await import("../mailHtml");
+  const { htmlToText } = await import("../kb/text");
+  const preview = htmlToText(doc.description_html || "");
+  const html = sbReviewHtml({
+    assignee, issueId: doc.issue_id, issueSubject: subject, issueUrl: url(doc.issue_id), title: doc.title || "",
+    disclosure: doc.disclosure, disclosureKo: DISCLOSURES[doc.disclosure] ?? "", reason: doc.disclosure_reason || "",
+    appliesTo: doc.applies_to || "", revision: doc.revision, fallback,
+    preview: preview.length > 700 ? preview.slice(0, 700) + " …" : preview,
+    docUrl: `${appUrl()}/?doc=${doc.id}`,     // SB 문서 화면이 이 문서를 먼저 고른다
+  });
+  const [ok, err] = await sendAsUser(uid, to, mailSubject, body, { html });
   if (!ok) return { sent: false, error: err, to };
 
   await sql`UPDATE sb.rm_sb_docs SET state = 'notified', notified_at = now() WHERE id = ${docId}`;

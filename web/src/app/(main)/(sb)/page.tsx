@@ -20,7 +20,9 @@ export default function SbPage() {
   const [states, setStates] = useState("active");
   const [mine, setMine] = useState(false);
   const [limit, setLimit] = useState(PAGE);
-  const [sel, setSel] = useState<number | null>(null);
+  // 검토 요청 메일의 버튼(/?doc=<id>)으로 들어오면 그 문서를 먼저 고른다.
+  const [sel, setSel] = useState<number | null>(() =>
+    typeof window === "undefined" ? null : Number(new URLSearchParams(window.location.search).get("doc")) || null);
   const [selDoc, setSelDoc] = useState<SbDoc | null>(null);
 
   const qs = new URLSearchParams({ q: dq, states, mine: mine ? "1" : "0", limit: String(limit) }).toString();

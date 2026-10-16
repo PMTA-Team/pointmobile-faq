@@ -5,6 +5,7 @@
 import { INITIAL_PASSWORD, type SignupInfo } from "./accounts";
 import { sql } from "./db";
 import { appUrl, sendAsUser, systemAdminEmails, systemSenderUserId } from "./mailer";
+import { accountResetHtml, signupApprovedHtml, signupRejectedHtml, signupRequestHtml } from "./mailHtml";
 import { render } from "./mailTemplates";
 import { kstMinute } from "./time";
 
@@ -40,11 +41,13 @@ export async function sendSignupRequest(info: { company: string; email: string; 
   const tos = await systemAdminEmails();
   const sender = await systemSenderUserId();
   if (!tos.length || sender == null) return [false, "관리자 주소나 발송 계정이 없어 알리지 못했습니다."];
+  const at = kstMinute(new Date());
+  const accountsUrl = `${appUrl()}/settings/accounts`;
   const [subject, body] = await render("signup_request", {
-    회사: info.company, 아이디: info.username, 계정관리주소: `${appUrl()}/settings/accounts`,
-    정보표: table([["회사", info.company], ["이메일", info.email], ["ID", info.username], ["신청 시각", kstMinute(new Date())]]),
+    회사: info.company, 아이디: info.username, 계정관리주소: accountsUrl,
+    정보표: table([["회사", info.company], ["이메일", info.email], ["ID", info.username], ["신청 시각", at]]),
   });
-  return sendAsUser(sender, tos, subject, body);
+  return sendAsUser(sender, tos, subject, body, { html: signupRequestHtml({ ...info, at, accountsUrl }) });
 }
 
 /** 가입 승인 · 반려 결과 — 신청자에게. */
@@ -54,7 +57,10 @@ export async function sendSignupResult(info: SignupInfo, approved: boolean): Pro
   const [subject, body] = approved
     ? await render("signup_approved", { 정보표: table([["서비스 주소", appUrl()], ["회사", info.company], ["ID", info.username]]) })
     : await render("signup_rejected", { 사유: info.reason || "-", 정보표: table([["회사", info.company], ["ID", info.username]]) });
-  return sendAsUser(sender, info.email, subject, body);
+  const html = approved
+    ? signupApprovedHtml({ company: info.company, username: info.username, appUrl: appUrl() })
+    : signupRejectedHtml({ company: info.company, username: info.username, reason: info.reason || "", appUrl: appUrl() });
+  return sendAsUser(sender, info.email, subject, body, { html });
 }
 
 /** 비밀번호 초기화 안내 — 관리자가 초기화한 직후, 그 계정의 이메일로. */
@@ -64,5 +70,5 @@ export async function sendReset(actorUserId: number, username: string): Promise<
   const [subject, body] = await render("account_reset", {
     정보표: table([["서비스 주소", appUrl()], ["아이디", username], ["초기 비밀번호", INITIAL_PASSWORD]]),
   });
-  return sendAsUser(actorUserId, to, subject, body);
+  return sendAsUser(actorUserId, to, subject, body, { html: accountResetHtml({ username, password: INITIAL_PASSWORD, appUrl: appUrl() }) });
 }
