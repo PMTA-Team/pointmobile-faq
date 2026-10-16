@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:schema": "node --env-file=.env.local --import tsx scripts/apply-schema.mts",
     "db:migrate": "node --env-file=.env.local --import tsx scripts/migrate-from-sbnext.mts",
-    "db:check": "node --env-file=.env.local --import tsx scripts/check-migration.mts"
+    "db:check": "node --env-file=.env.local --import tsx scripts/check-migration.mts",
+    "db:cron": "node --env-file=.env.local --import tsx scripts/setup-cron.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.134.0",

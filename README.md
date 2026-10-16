@@ -12,21 +12,27 @@ Redmine salesissue 를 수집하고, Resolved 된 이슈를 고객용 문서(SB)
 | API | `web/src/app/api/**/route.ts` — 예전 FastAPI 와 주소 · 요청 · 응답 모양이 같다 |
 | 서버 로직 | `web/src/server/` — DB · 세션 · 메일 · Claude · 검증 모드, `server/issuetrack/` — Redmine 수집 · SB 문서 · 통계 |
 | DB | PostgreSQL 의 `sb` 스키마 — `web/db/schema.sql` |
-| 주기 작업 | `GET /api/cron/tick` — 5분마다 Redmine 수집 → SB 초안 → 검토 요청 메일(`web/vercel.json`) |
+| 주기 작업 | `GET /api/cron/tick` — 5분마다 Redmine 수집 → SB 초안 → 검토 요청 메일(Supabase Cron 이 부른다) |
 
 ## 웹에 올리기(Vercel + Supabase)
 
 1. **Supabase** 프로젝트를 만들고 스키마를 넣는다.
-   `web/.env.local` 의 `DATABASE_URL` 을 Supabase 의 **Transaction pooler**(포트 6543) 주소로 두고 `npm run db:schema`.
-   표는 `sb` 스키마에 있어 Supabase Data API(anon 키)로는 열리지 않는다 — 앱은 서버에서 `DATABASE_URL` 로만 붙는다.
+   `web/.env.local` 의 `DATABASE_URL` 을 Supabase 의 **풀러** 주소로 두고 `npm run db:schema`.
+   - 직접 연결(`db.<ref>.supabase.co`)은 IPv6 전용이라 이 PC · Vercel 에서 붙지 않는다. 풀러(IPv4)를 쓴다 —
+     `postgresql://postgres.<ref>:<비밀번호>@aws-0-ap-northeast-2.pooler.supabase.com:<포트>/postgres`
+     (Vercel 은 **6543**(transaction), 이관처럼 오래 걸리는 작업은 **5432**(session)).
+   - 표는 `sb` 스키마에 있어 Supabase Data API(anon 키)로는 열리지 않는다 — 앱은 서버에서 `DATABASE_URL` 로만 붙는다.
 2. **데이터 옮기기**(한 번): `SOURCE_DATABASE_URL`(예전 sbnext) 을 넣고 `npm run db:migrate` 로 건수를 본 뒤
    `npm run db:migrate -- --load`. 대상 `sb` 표를 비우고 채운다. `npm run db:check` 로 자격증명이 풀리는지 확인한다.
-3. **Vercel** 프로젝트를 만들고 Root Directory 를 `web` 으로, 환경변수는 `web/.env.example` 을 보고 넣는다.
+3. **Vercel** 프로젝트(pmta-team/pointmobile-faq) — Settings → Build and Deployment 에서
+   **Root Directory 를 `web`** 으로(비워 두면 저장소 맨 위에 앱이 없어 모든 주소가 404), Framework Preset 은 Next.js.
+   환경변수는 `web/.env.example` 을 보고 넣는다(.env 내용을 통째로 붙여 넣으면 한 번에 들어간다).
    - `FERNET_KEY` 는 예전 앱과 **같은 값**이어야 옮겨 온 Redmine · 메일 비밀번호가 풀린다.
-   - `CRON_SECRET` 을 넣으면 Vercel Cron 이 `Authorization: Bearer` 로 보낸다.
-4. **주기 작업** — `web/vercel.json` 이 5분마다 `/api/cron/tick` 을 부른다. 5분 주기와 한 번 300초 실행은 Vercel Pro 가 필요하다
-   (Hobby 는 cron 이 하루 1번). Pro 를 쓰지 않으면 Supabase Cron(pg_cron + pg_net)이나 다른 스케줄러가
-   `Authorization: Bearer <CRON_SECRET>` 로 같은 주소를 5분마다 부르게 한다.
+   - `DATABASE_URL` 은 풀러 6543 주소.
+4. **주기 작업** — Vercel Hobby 는 cron 이 하루 1번이라 **Supabase Cron 이 5분마다 부른다**:
+   `APP_URL=https://pointmobile-faq.vercel.app npm run db:cron` (DATABASE_URL · CRON_SECRET 은 Supabase · Vercel 과 같은 값).
+   `Authorization: Bearer <CRON_SECRET>` 로 `/api/cron/tick` 을 부르고, 겹쳐 불려도 DB 잠금으로 한 번만 돈다.
+   끄기: `SELECT cron.unschedule('sb-tick');`
 5. **Redmine 이 사외망에서 열리는지** 먼저 확인한다 — `issue.pointmobile.co.kr` 의 REST API(.json)에 Vercel 서버가 닿아야 수집된다.
    메일은 SMTP(`mail.pointmobile.com:587`, STARTTLS)로 보낸다.
 
