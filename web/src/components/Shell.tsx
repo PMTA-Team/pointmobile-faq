@@ -15,7 +15,12 @@ type NavItem = {
 
 // 묶음(label 이 있으면 머리글을 단다) → 메뉴. 업로드 = Redmine 이슈로 SB 문서를 만들어 확정하기까지.
 const NAV: { label?: string; icon?: string; items: NavItem[] }[] = [
-  { items: [{ href: "/faq", label: "FAQ", icon: "help" }] },
+  {
+    items: [
+      { href: "/faq", label: "FAQ", icon: "help" },
+      { href: "/wiki", label: "LLM Wiki", icon: "chat" },
+    ],
+  },
   {
     label: "업로드", icon: "upload",
     items: [

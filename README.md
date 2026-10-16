@@ -48,11 +48,28 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1     # 3070 + 5분 주
 
 ## 화면
 
-- `/` SB 문서 — 내 담당 문서(관리자는 전체). 편집 · 검토 요청 · 확정 · 폐기
+- `/faq` FAQ — 처리한 이슈의 기록(해결 사례)과 Confluence 에서 옮긴 How-to · Troubleshooting 문서 검색 · 열람(`/faq/<id>`)
+- `/wiki` LLM Wiki — 질문하면 Claude 가 FAQ 를 찾아 읽고 출처를 단 해결 가이드를 준다
+- `/` SB 문서(업로드) — 내 담당 문서(관리자는 전체). 편집 · 검토 요청 · 확정(→ FAQ 에 올라감) · 폐기
 - `/issues` 이슈 — Redmine 이슈 목록 · 타임라인
 - `/stats` 통계(업무일 기준 — 주말 · 한국 공휴일 제외, `server/issuetrack/krHolidays.ts`)
 - `/usage` Claude 사용량
 - `/settings` 검증 모드 · Redmine · 메일 발송 · Claude · SB 동작 · 계정 · 사내 인원 · 메일 문구 · 비밀번호
+
+## FAQ · LLM Wiki
+
+기획은 `docs/FAQ_PLAN.md`. 문서는 `sb.kb_articles` 한 표에 있다 — Confluence 이관분(SB · Knowledge Articles · Troubleshooting, 1,314건)과
+업로드에서 확정한 SB 문서(확정하면 올라가고, 확정 취소하면 내려간다).
+
+- 검색: PGroonga(제목 · 적용 모델 · 본문, 한국어 · 영어) — Supabase 에만 있다. 로컬 PostgreSQL 에서는 ILIKE 로 대신한다.
+- 이미지: `sb.kb_files`(DB)에 두고 `/api/kb/files/<id>` 로 준다. 큰 첨부(zip · apk · mp4 …)는 원본 Confluence 링크.
+- LLM Wiki: Claude 가 `search_faq` · `get_faq` 도구로 찾아 읽고(최대 6번) `search_result` 인용으로 출처를 단다.
+  질문 · 답 · 인용 · 평가는 `sb.qa_logs` — 관리자는 'FAQ 보강 거리'(못 찾음 · 👎)를 본다.
+- Confluence 다시 옮기기(덮어쓴다):
+  1. `python -I web/scripts/confluence/extract_dump.py <Confluence_backup.sql> confluence.sqlite`
+  2. `node --env-file=.env.local --import tsx scripts/import-confluence.mts confluence.sqlite`
+  3. `node --env-file=.env.local --import tsx scripts/fetch-confluence-images.mts`(SOURCE_DATABASE_URL 의 Confluence 계정으로 받는다)
+- 확인: `scripts/e2e-faq.mts` · `scripts/e2e-wiki.mts <앱 주소>`
 
 ## Claude
 
