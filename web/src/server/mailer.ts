@@ -55,7 +55,7 @@ async function getSendIdentity(userId: number): Promise<SendIdentity | null> {
 
 /** 시스템 명의 발신 설정 — [보이는 주소, 표시 이름, 답장 받을 주소]. */
 export function systemFrom(): [string, string, string] {
-  return [env("TW_MAIL_FROM"), env("TW_MAIL_FROM_NAME") || "Solution Buffer", env("TW_MAIL_REPLY_TO")];
+  return [env("TW_MAIL_FROM"), env("TW_MAIL_FROM_NAME") || "TA FAQ", env("TW_MAIL_REPLY_TO")];
 }
 
 /** 앱이 보내는 모든 메일에 참조로 넣을 주소(TW_MAIL_ALWAYS_CC, 쉼표 구분). */

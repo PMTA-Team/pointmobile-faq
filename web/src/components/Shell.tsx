@@ -56,10 +56,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <aside className="sticky top-0 z-10 flex flex-col gap-1 border-b border-side-line bg-side px-3 py-4 text-side-text lg:h-screen lg:border-b-0 lg:border-r">
         <div className="mb-3 flex items-center">
         <Link href="/" className="flex flex-1 items-center gap-2.5 px-2 text-side-strong">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-[#14b8a6] to-[#0d9488] text-[13px] font-extrabold text-white">SB</span>
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-[#14b8a6] to-[#0d9488] text-[13px] font-extrabold text-white">TA</span>
           <span>
-            <span className="block text-[15px] font-bold leading-tight">Solution Buffer</span>
-            <span className="block text-[11px] text-side-dim">Redmine 이슈 → 고객 문서</span>
+            <span className="block text-[15px] font-bold leading-tight">TA FAQ</span>
+            <span className="block text-[11px] text-side-dim">이슈 기록 · 해결 가이드</span>
           </span>
         </Link>
         <ThemeCycle className="text-side-dim hover:bg-side-hover hover:text-side-strong lg:hidden" />

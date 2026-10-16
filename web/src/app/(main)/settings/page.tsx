@@ -56,7 +56,7 @@ export default function SettingsHome() {
       </div>
 
       <div>
-        <h2 className="mb-2 text-[13px] font-bold text-ink-3">Solution Buffer</h2>
+        <h2 className="mb-2 text-[13px] font-bold text-ink-3">SB 문서</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Tile href="/settings/sb" title="초안 자동 생성" ok={s.sb.sb_auto_generate} okText={`한 번에 ${s.sb.sb_per_tick}건`} noText="꺼짐" />
           <Tile href="/settings/sb" title="담당자 검토 요청 메일" ok={s.sb.sb_auto_notify} okText="자동 발송" noText="수동 발송">

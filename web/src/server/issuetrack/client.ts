@@ -12,7 +12,7 @@ export const PROJECT = process.env.TW_REDMINE_PROJECT || "salesissue";
 const TIMEOUT_MS = 60_000;
 const PAGE_SIZE = 100; // Redmine 이 허용하는 limit 상한
 const RETRY = 3;
-const UA = "SolutionBuffer/1.0 (issue monitor; read-only)";
+const UA = "TA-FAQ/1.0 (issue monitor; read-only)";
 
 export class RedmineError extends Error {}
 

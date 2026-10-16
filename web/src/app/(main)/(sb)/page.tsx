@@ -11,7 +11,7 @@ import { RichStyle } from "@/components/issues/RichEditor";
 const PAGE = 30;
 
 /**
- * Solution Buffer 문서 — 왼쪽 목록, 오른쪽 문서. 목록을 보며 오른쪽에서 고치고,
+ * SB 문서 — 왼쪽 목록, 오른쪽 문서. 목록을 보며 오른쪽에서 고치고,
  * 처리하면 다음 건으로 넘어간다.
  */
 export default function SbPage() {

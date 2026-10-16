@@ -11,7 +11,7 @@ export function AuthShell({ sub, children }: { sub: string; children: React.Reac
         <div className="mb-6 flex items-center gap-2.5">
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-[#14b8a6] to-[#0d9488] text-[13px] font-extrabold text-white">SB</span>
           <div>
-            <div className="text-[16px] font-bold">Solution Buffer</div>
+            <div className="text-[16px] font-bold">TA FAQ</div>
             <div className="text-[12px] text-ink-3">{sub}</div>
           </div>
         </div>

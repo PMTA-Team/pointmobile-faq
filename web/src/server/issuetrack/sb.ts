@@ -1,5 +1,5 @@
 /**
- * Resolved 이슈 → Solution Buffer 문서 초안 → 담당자 검토 요청 메일 → 확정.
+ * Resolved 이슈 → SB 문서 초안 → 담당자 검토 요청 메일 → 확정.
  *
  * 흐름
  *   1. scan()      상태가 Resolved 인 이슈를 훑어 문서 행을 만든다(Claude 는 부르지 않는다).
@@ -70,7 +70,7 @@ export const SBDraft = z.object({
 });
 
 export const SYSTEM = `당신은 Point Mobile 기술지원팀의 Solution Buffer(SB) 문서 작성자입니다.
-Redmine 이슈가 Resolved 되면 그 내용을 Solution Buffer 에 올릴 FAQ 문서로 정리합니다.
+Redmine 이슈가 Resolved 되면 그 내용을 사내 FAQ(TA FAQ)에 올릴 문서로 정리합니다.
 
 SB 문서 규칙:
 - 제목은 자연어(질문형 또는 설명형). 이슈 제목의 [Issue][PM95] 같은 태그는 넣지 않는다.

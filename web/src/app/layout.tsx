@@ -3,8 +3,8 @@ import { THEME_BOOT } from "@/components/ThemeToggle";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Solution Buffer", template: "%s · Solution Buffer" },
-  description: "Redmine 이슈 → 고객 문서(Solution Buffer)",
+  title: { default: "TA FAQ", template: "%s · TA FAQ" },
+  description: "Point Mobile TA 팀 FAQ — 처리한 이슈의 기록과 해결 가이드",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

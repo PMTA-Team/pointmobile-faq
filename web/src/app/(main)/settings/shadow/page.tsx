@@ -9,7 +9,7 @@ import { errText, send, type ShadowResp, type ShadowWrite } from "@/lib/admin";
 // sb_confluence 는 Confluence 업로드를 없애기 전(2026-10-15)에 남은 기록을 읽으려고 둔다.
 const SYSTEM: Record<string, string> = { mail: "메일", sb_confluence: "SB Confluence(옛 기록)", system: "운영 전환" };
 
-const LOOP: Record<string, string> = { redmine_sb: "Redmine · Solution Buffer" };
+const LOOP: Record<string, string> = { redmine_sb: "Redmine 수집 · SB 문서" };
 
 const PHRASE = "운영 전환";
 
@@ -147,7 +147,7 @@ export default function ShadowPage() {
         <div className="space-y-3 text-[14px] text-ink-2">
           <p>전환하면 이 앱이 메일(SB 검토 요청 · 회원가입 인증번호 · 계정 알림)을 실제로 보냅니다.
             tw-next · tw-automation 에서 같은 알림을 돌리고 있으면 메일이 두 번 나갑니다.</p>
-          <p>Solution Buffer 검토 요청처럼 사람이 누르지 않아도 도는 작업도 그 순간부터 실제로 보냅니다.</p>
+          <p>SB 문서 검토 요청처럼 사람이 누르지 않아도 도는 작업도 그 순간부터 실제로 보냅니다.</p>
           <label className="block">
             <span className="mb-1 block text-[12.5px] font-semibold">아래 칸에 <b className="text-err">{PHRASE}</b> 를 입력하세요</span>
             <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={PHRASE} autoFocus />

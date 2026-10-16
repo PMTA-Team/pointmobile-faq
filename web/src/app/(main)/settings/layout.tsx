@@ -18,7 +18,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
       { href: "/settings/claude", label: "Claude 호출", admin: true },
     ],
   },
-  { title: "Solution Buffer", items: [{ href: "/settings/sb", label: "동작 설정" }] },
+  { title: "SB 문서", items: [{ href: "/settings/sb", label: "동작 설정" }] },
   {
     title: "사람",
     items: [

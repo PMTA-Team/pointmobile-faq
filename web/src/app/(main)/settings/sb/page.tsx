@@ -8,7 +8,7 @@ import { Btn, ToastHost, useToast } from "@/components/issues/kit";
 
 const input = "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-[14px] outline-none focus:border-brand disabled:bg-surface-2 disabled:text-ink-2";
 
-/** Solution Buffer 동작 설정 — 값은 issuetrack.db 에 남고 다음 수집 주기부터 듣는다. 고치기는 관리자만. */
+/** SB 문서 동작 설정 — 값은 issuetrack.db 에 남고 다음 수집 주기부터 듣는다. 고치기는 관리자만. */
 export default function SbSettingsPage() {
   return <ToastHost><SbSettings /></ToastHost>;
 }
@@ -45,7 +45,7 @@ function SbSettings() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <Card title="Solution Buffer 동작" right={!admin && <span className="text-[12px] text-ink-3">관리자만 바꿀 수 있음</span>}>
+      <Card title="SB 문서 동작" right={!admin && <span className="text-[12px] text-ink-3">관리자만 바꿀 수 있음</span>}>
         <div className="space-y-5">
           <div className="flex items-start gap-3">
             <button type="button" role="switch" aria-checked={form.sb_auto_notify} disabled={!admin}

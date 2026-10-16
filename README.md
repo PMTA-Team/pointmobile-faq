@@ -1,4 +1,4 @@
-# Solution Buffer (pointmobile-faq)
+# TA FAQ (pointmobile-faq)
 
 Redmine salesissue 를 수집하고, Resolved 된 이슈를 고객용 문서(SB) 초안으로 만들어 담당자가 검토 · 확정하는 앱.
 확정된 문서는 DB(`sb.rm_sb_docs`, state=`approved`)에 남는다.

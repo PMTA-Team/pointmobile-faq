@@ -1,5 +1,5 @@
 /**
- * Solution Buffer 동작 설정 — 화면에서 바꾸고 DB(sb.rm_sync_state, 키 'cfg.<이름>')에 남는다.
+ * SB 문서 동작 설정 — 화면에서 바꾸고 DB(sb.rm_sync_state, 키 'cfg.<이름>')에 남는다.
  * 우선순위: DB 에 저장된 값 > 환경변수 기본값 > 코드 기본값. 한 번 화면에서 바꾸면 환경변수를 고쳐도 안 바뀐다.
  */
 import { sql } from "../db";
@@ -15,7 +15,7 @@ const DEFS: Record<string, [string, boolean | number | string, Kind]> = {
   exclude_keywords: ["TW_REDMINE_EXCLUDE", "janam", "str"],
   // 이 날짜보다 전에 해결된 이슈는 SB 에 이미 정리돼 있다고 보고 소급 대상에서 뺀다. 빈 값이면 컷오프 없음.
   sb_cutoff: ["TW_SB_CUTOFF", "2026-04-22", "str"],
-  // Solution Buffer 는 TA 팀 전용 — 여기 적힌 Redmine 담당자의 이슈만 문서를 만든다. 빈 값이면 가리지 않는다.
+  // SB 문서는 TA 팀 전용 — 여기 적힌 Redmine 담당자의 이슈만 문서를 만든다. 빈 값이면 가리지 않는다.
   sb_assignees: ["TW_SB_ASSIGNEES", "daniel.chae,samuel.seo,jayden.lee,damon.park", "str"],
 };
 

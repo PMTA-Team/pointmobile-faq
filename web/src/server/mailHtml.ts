@@ -102,9 +102,9 @@ function shell(title: string, inner: string): string {
   <tr>
     <td bgcolor="${BRAND}" style="${FAMILY};padding:18px 22px;background:${BRAND};border-bottom:3px solid ${BRAND_DARK}">
       <table ${TABLE} style="border-collapse:collapse"><tr>
-        <td width="36" height="36" align="center" valign="middle" bgcolor="#ffffff" style="${FAMILY};width:36px;height:36px;background:#ffffff;border-radius:9px;color:${BRAND};font-size:14px;font-weight:800;line-height:36px">SB</td>
+        <td width="36" height="36" align="center" valign="middle" bgcolor="#ffffff" style="${FAMILY};width:36px;height:36px;background:#ffffff;border-radius:9px;color:${BRAND};font-size:14px;font-weight:800;line-height:36px">TA</td>
         <td style="${FAMILY};padding-left:12px">
-          <div style="${FAMILY};color:#ffffff;font-size:16px;line-height:20px;mso-line-height-rule:exactly;font-weight:700">Solution Buffer</div>
+          <div style="${FAMILY};color:#ffffff;font-size:16px;line-height:20px;mso-line-height-rule:exactly;font-weight:700">TA FAQ</div>
           <div style="${FAMILY};color:#d6e2ff;font-size:12px;line-height:16px;mso-line-height-rule:exactly">${e(title)}</div>
         </td>
       </tr></table>
@@ -113,7 +113,7 @@ function shell(title: string, inner: string): string {
   <tr><td style="padding:24px 22px 8px;${FONT};line-height:21px;mso-line-height-rule:exactly">${inner}</td></tr>
   <tr>
     <td style="${FAMILY};padding:14px 22px 22px;border-top:1px solid ${LINE};color:${INK3};font-size:11.5px;line-height:1.7">
-      Solution Buffer(Point Mobile 기술지원)에서 자동으로 보낸 메일입니다. 문의는 이 메일에 회신해 주세요.<br>&copy; ${year} Point Mobile Co., Ltd.
+      TA FAQ(Point Mobile 기술지원)에서 자동으로 보낸 메일입니다. 문의는 이 메일에 회신해 주세요.<br>&copy; ${year} Point Mobile Co., Ltd.
     </td>
   </tr>
 </table>
@@ -129,7 +129,7 @@ export function signupCodeHtml(o: { code: string; minutes: number; appUrl: strin
     + `<div style="${FAMILY};color:${INK3};font-size:12px;line-height:16px">인증번호</div>${gap(6)}`
     + `<div style="${MONO};color:${INK};font-size:32px;line-height:38px;font-weight:700;letter-spacing:8px">${e(o.code)}</div>`
     + `</td></tr></table>${gap(18)}`;
-  const inner = p("안녕하세요.") + p("Solution Buffer 회원가입을 위한 이메일 인증번호입니다.", true) + gap(18)
+  const inner = p("안녕하세요.") + p("TA FAQ 회원가입을 위한 이메일 인증번호입니다.", true) + gap(18)
     + codeBox
     + box("안내", `회원가입 화면의 인증번호 칸에 입력하세요. ${o.minutes}분 안에 입력해야 합니다.\n본인이 요청하지 않았다면 이 메일을 무시하세요.`, "plain")
     + `<div style="${FAMILY};color:${INK3};font-size:12px">${link(o.appUrl)}</div>${gap(8)}`;
@@ -138,7 +138,7 @@ export function signupCodeHtml(o: { code: string; minutes: number; appUrl: strin
 
 /** 가입 신청 — 시스템 관리자에게 승인 요청. */
 export function signupRequestHtml(o: { company: string; email: string; username: string; at: string; accountsUrl: string }): string {
-  const inner = p("안녕하세요.") + p(`${e(o.company)}의 ${e(o.username)} 님이 Solution Buffer 가입을 신청했습니다.`, true) + gap(18)
+  const inner = p("안녕하세요.") + p(`${e(o.company)}의 ${e(o.username)} 님이 TA FAQ 가입을 신청했습니다.`, true) + gap(18)
     + banner("info", "가입 승인 요청", `${o.company} · ${o.username}`)
     + rows([["회사", e(o.company)], ["이메일", link(`mailto:${o.email}`, o.email)], ["ID", mono(o.username)], ["신청 시각", e(o.at)]])
     + button("계정 관리에서 승인 · 반려하기", o.accountsUrl);
@@ -147,7 +147,7 @@ export function signupRequestHtml(o: { company: string; email: string; username:
 
 /** 가입 승인 — 신청자에게. */
 export function signupApprovedHtml(o: { company: string; username: string; appUrl: string }): string {
-  const inner = p("안녕하세요.") + p("신청하신 Solution Buffer 가입이 승인되었습니다. 이제 로그인할 수 있습니다.", true) + gap(18)
+  const inner = p("안녕하세요.") + p("신청하신 TA FAQ 가입이 승인되었습니다. 이제 로그인할 수 있습니다.", true) + gap(18)
     + banner("ok", "가입 승인", `${o.company} · ${o.username}`)
     + rows([["서비스 주소", link(o.appUrl)], ["회사", e(o.company)], ["ID", mono(o.username)]])
     + button("로그인하기", `${o.appUrl}/login`);
@@ -156,7 +156,7 @@ export function signupApprovedHtml(o: { company: string; username: string; appUr
 
 /** 가입 반려 — 신청자에게. */
 export function signupRejectedHtml(o: { company: string; username: string; reason: string; appUrl: string }): string {
-  const inner = p("안녕하세요.") + p("신청하신 Solution Buffer 가입이 반려되었습니다.", true) + gap(18)
+  const inner = p("안녕하세요.") + p("신청하신 TA FAQ 가입이 반려되었습니다.", true) + gap(18)
     + banner("fail", "가입 반려", `${o.company} · ${o.username}`)
     + box("반려 사유", o.reason || "-", "fail")
     + rows([["회사", e(o.company)], ["ID", mono(o.username)]])
@@ -167,7 +167,7 @@ export function signupRejectedHtml(o: { company: string; username: string; reaso
 
 /** 비밀번호 초기화 — 그 계정의 이메일로. */
 export function accountResetHtml(o: { username: string; password: string; appUrl: string }): string {
-  const inner = p("안녕하세요.") + p("관리자가 Solution Buffer 계정의 비밀번호를 초기화했습니다.", true) + gap(18)
+  const inner = p("안녕하세요.") + p("관리자가 TA FAQ 계정의 비밀번호를 초기화했습니다.", true) + gap(18)
     + banner("warn", "비밀번호 초기화", o.username)
     + rows([["서비스 주소", link(o.appUrl)], ["아이디", mono(o.username)], ["초기 비밀번호", mono(o.password)]])
     + box("안내", "다음 로그인 때 비밀번호 변경 화면이 먼저 열립니다. 새 비밀번호로 바꿔 주세요.\n본인이 요청하지 않았다면 관리자에게 알려 주세요.", "plain")
@@ -182,7 +182,7 @@ export function sbReviewHtml(o: {
   preview: string; fallback: boolean; docUrl: string;
 }): string {
   const inner = p(`${e(o.assignee || "담당자")} 님,`)
-    + p(`담당하신 Redmine 이슈 <b>#${o.issueId}</b> 가 Resolved 되어, Solution Buffer 문서 초안을 자동으로 작성했습니다.`, true) + gap(18)
+    + p(`담당하신 Redmine 이슈 <b>#${o.issueId}</b> 가 Resolved 되어, SB 문서 초안을 자동으로 작성했습니다.`, true) + gap(18)
     + banner("info", "SB 문서 검토 요청", o.title)
     + strip([["Redmine", `#${o.issueId}`], ["추천 공개 등급", `${e(o.disclosure)} <span style="font-size:12px;color:${INK3}">${e(o.disclosureKo)}</span>`],
              ["판", o.revision > 1 ? `${o.revision}판` : "새 문서"]])
