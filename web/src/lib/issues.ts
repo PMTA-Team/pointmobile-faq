@@ -112,12 +112,24 @@ export function kst(iso: string) {
   return iso.slice(0, 16).replace("T", " ");
 }
 
-/** FAQ(/api/faq) — 확정된 SB 문서 */
-export type FaqItem = {
-  id: number; issue_id: number; revision: number; title: string; troubleshooting: boolean; disclosure: string;
-  applies_to: string; description_html: string; partners: string[]; decided_at: string; decided_by: string; issue_url: string;
+/** FAQ(/api/faq) — sb.kb_articles */
+export type FaqLabels = { kind: Record<string, string>; space: Record<string, string>; disclosure: Record<string, string> };
+export type FaqHit = {
+  id: number; title: string; kind: string; disclosure: string; applies_to: string; products: string[]; category: string;
+  source_space: string; redmine_issue_ids: number[]; updated_at: string; snippets: string[]; score: number;
 };
-export type FaqList = {
-  total: number; counts: Record<string, number>; disclosures: Record<string, string>;
-  partners: Record<string, string>; items: FaqItem[];
+export type FaqSearch = {
+  total: number; loose: boolean; items: FaqHit[]; labels: FaqLabels;
+  facets: { kind: Record<string, number>; space: Record<string, number>; disclosure: Record<string, number>; product: Record<string, number> };
+};
+export type FaqArticle = {
+  id: number; kind: string; title: string; category: string; labels: string[]; applies_to: string; products: string[];
+  disclosure: string; body_html: string; summary: string | null; source: string; source_space: string | null; source_url: string | null;
+  sb_doc_id: number | null; redmine_issue_ids: number[]; author: string; approved_by: string | null; created_at: string;
+  updated_at: string; approved_at: string; view_count: number; helpful_up: number; helpful_down: number;
+};
+export type FaqDetail = {
+  article: FaqArticle; issues: { id: number; url: string }[]; labels: FaqLabels;
+  attachments: { id: number; filename: string; media_type: string; size: number; is_image: boolean; stored: boolean }[];
+  related: { id: number; title: string; kind: string; disclosure: string; overlap: number }[];
 };

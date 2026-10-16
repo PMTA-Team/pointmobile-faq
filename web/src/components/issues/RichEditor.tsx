@@ -22,7 +22,26 @@ export function RichStyle() {
 .rich pre code { background: none; padding: 0; }
 .rich blockquote { border-left: 3px solid var(--line-strong); margin: .5em 0; padding-left: .8em; color: var(--text-2); }
 .rich a { color: var(--brand-ink); text-decoration: underline; }
-.rich img { max-width: 100%; }
+.rich img { max-width: 100%; height: auto; border-radius: 4px; }
+.rich hr { border: 0; border-top: 1px solid var(--line); margin: 1em 0; }
+.rich .callout { border: 1px solid var(--line); border-left: 4px solid var(--info); background: var(--info-soft); border-radius: 8px; padding: 8px 12px; margin: .6em 0; }
+.rich .callout-note, .rich .callout-warning { border-left-color: var(--warn); background: var(--warn-soft); }
+.rich .callout-tip, .rich .callout-success { border-left-color: var(--ok); background: var(--ok-soft); }
+.rich .callout-error { border-left-color: var(--err); background: var(--err-soft); }
+.rich .callout-title, .rich .code-title { font-weight: 700; margin-bottom: .3em; }
+.rich ol.steps { list-style: none; counter-reset: step; padding-left: 0; }
+.rich ol.steps > li { counter-increment: step; position: relative; padding: .2em 0 .5em 2.2em; border-left: 2px solid var(--line); margin-left: .8em; }
+.rich ol.steps > li::before { content: counter(step); position: absolute; left: -.85em; top: .1em; width: 1.6em; height: 1.6em; border-radius: 999px; background: var(--brand); color: #fff; font-size: .8em; font-weight: 700; display: grid; place-items: center; }
+.rich ul.tasks { list-style: none; padding-left: .3em; }
+.rich details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin: .5em 0; }
+.rich details > summary { cursor: pointer; font-weight: 600; }
+.rich .tabs > .tab { border-top: 1px dashed var(--line); padding-top: .4em; }
+.rich table.props th { width: 140px; white-space: nowrap; }
+.rich .jira { background: var(--muted-soft); border-radius: 4px; padding: 0 5px; font-size: .9em; }
+.rich a.file::before { content: "📎 "; }
+.keyword, .rich .keyword { background: #fff3a3; color: inherit; border-radius: 2px; padding: 0 1px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .keyword { background: #5c4d00; } }
+:root[data-theme="dark"] .keyword { background: #5c4d00; }
 `}</style>
   );
 }

@@ -1,101 +1,168 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { Suspense, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/lib/api";
-import { kst, type FaqItem, type FaqList } from "@/lib/issues";
+import { kst, type FaqHit, type FaqSearch } from "@/lib/issues";
 import { Card, cx, Empty, PageHead, Skeleton } from "@/components/ui";
-import { FilterChip, SearchBox, useDebounced } from "@/components/issues/kit";
+import { useDebounced } from "@/components/issues/kit";
 import { DisclosureTag } from "@/components/issues/SbDocPanel";
 import { RichStyle } from "@/components/issues/RichEditor";
 
-const PAGE = 50;
+const PAGE = 20;
+const FILTERS = ["kind", "space", "product", "disclosure"] as const;
+type Filter = (typeof FILTERS)[number];
+const FILTER_TITLE: Record<Filter, string> = { kind: "종류", space: "출처", product: "모델", disclosure: "공개 등급" };
 
-/** FAQ — 담당자가 확정한 SB 문서를 질문 목록처럼 읽는다. 제목을 누르면 본문이 펼쳐진다. */
 export default function FaqPage() {
-  const [q, setQ] = useState("");
-  const dq = useDebounced(q);
-  const [disclosure, setDisclosure] = useState("");
-  const [limit, setLimit] = useState(PAGE);
-  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <Suspense fallback={<Skeleton rows={6} />}>
+      <FaqSearchPage />
+    </Suspense>
+  );
+}
 
-  const qs = new URLSearchParams({ q: dq, disclosure, limit: String(limit) }).toString();
-  const list = useApi<FaqList>(`/api/faq?${qs}`);
-  const data = list.data;
-  const all = data ? Object.values(data.counts).reduce((a, n) => a + n, 0) : 0;
+/**
+ * FAQ — 처리한 이슈의 기록(해결 사례)과 Confluence 에서 옮긴 How-to · Troubleshooting 문서를 한곳에서 찾는다.
+ * 검색 조건은 주소에 남겨, 링크를 그대로 남에게 줄 수 있다.
+ */
+function FaqSearchPage() {
+  const router = useRouter();
+  const path = usePathname();
+  const sp = useSearchParams();
+  const [q, setQ] = useState(sp.get("q") ?? "");
+  const dq = useDebounced(q, 350);
+  const [limit, setLimit] = useState(PAGE);
+  const filters = Object.fromEntries(FILTERS.map((f) => [f, sp.get(f) ?? ""])) as Record<Filter, string>;
+  const sort = sp.get("sort") === "recent" ? "recent" : "relevance";
+
+  // 검색어 · 걸러 보기 → 주소
+  function push(next: Partial<Record<Filter | "q" | "sort", string>>) {
+    const u = new URLSearchParams(sp.toString());
+    for (const [k, v] of Object.entries(next)) {
+      if (v) u.set(k, v);
+      else u.delete(k);
+    }
+    setLimit(PAGE);
+    router.replace(`${path}${u.toString() ? `?${u}` : ""}`, { scroll: false });
+  }
+  useEffect(() => {
+    if ((sp.get("q") ?? "") !== dq) push({ q: dq });
+  }, [dq]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const qs = new URLSearchParams({ q: sp.get("q") ?? "", sort, limit: String(limit) });
+  for (const f of FILTERS) if (filters[f]) qs.set(f, filters[f]);
+  const res = useApi<FaqSearch>(`/api/faq?${qs}`);
+  const data = res.data;
+  const active = FILTERS.filter((f) => filters[f]);
 
   return (
     <>
       <RichStyle />
-      <PageHead title="FAQ" lead="담당자가 검토하고 확정한 Solution Buffer 문서. 제목을 누르면 내용이 펼쳐집니다." />
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <SearchBox value={q} onChange={(v) => { setQ(v); setLimit(PAGE); setOpen(null); }} placeholder="제목 · 모델 · 내용 · #이슈번호" />
-        <span className="ml-auto text-[12px] text-ink-3">{data ? `${data.total.toLocaleString()}건` : ""}</span>
-      </div>
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        <FilterChip active={!disclosure} onClick={() => { setDisclosure(""); setLimit(PAGE); }}>전체 {all || ""}</FilterChip>
-        {data && Object.entries(data.disclosures).map(([k, ko]) => (
-          <FilterChip key={k} active={disclosure === k} onClick={() => { setDisclosure(k); setLimit(PAGE); }}>
-            {ko} {data.counts[k] ?? 0}
-          </FilterChip>
-        ))}
+      <PageHead title="FAQ" lead="처리한 이슈의 기록과 How-to · Troubleshooting 문서. 다음 이슈를 처리할 때 비슷한 사례를 찾아 읽는다." />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <svg viewBox="0 0 24 24" className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-3" fill="none" stroke="currentColor" strokeWidth={1.9}><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+          <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus
+                 placeholder="증상 · 모델 · 기능 · #이슈번호   예) PM85 스캐너 안 읽힘, factory reset FRP, #32713"
+                 className="w-full rounded-xl border border-line-strong bg-surface py-3 pl-11 pr-10 text-[15px] outline-none focus:border-brand" />
+          {q && <button onClick={() => setQ("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded px-1.5 text-ink-3 hover:text-ink" aria-label="지우기">×</button>}
+        </div>
+        <div className="flex overflow-hidden rounded-lg border border-line-strong text-[13px]">
+          {(["relevance", "recent"] as const).map((s) => (
+            <button key={s} onClick={() => push({ sort: s === "recent" ? "recent" : "" })}
+                    className={cx("px-3 py-2", sort === s ? "bg-brand text-white" : "bg-surface text-ink-2 hover:bg-surface-2")}>
+              {s === "recent" ? "최신순" : "관련도순"}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <Card pad={false}>
-        {list.loading && !data ? <Skeleton rows={6} /> : data?.items.length ? (
-          <div>
-            {data.items.map((f) => (
-              <FaqRow key={f.id} f={f} partners={data.partners} open={open === f.id}
-                      onToggle={() => setOpen((o) => (o === f.id ? null : f.id))} />
-            ))}
-            {data.items.length < data.total && (
-              <button onClick={() => setLimit((l) => l + PAGE)}
-                      className="block w-full px-5 py-3 text-center text-[13px] font-semibold text-brand-ink hover:bg-surface-2">
-                더 보기 (남은 {(data.total - data.items.length).toLocaleString()}건)
+      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <aside className="space-y-4 self-start lg:sticky lg:top-4">
+          {data && FILTERS.map((f) => {
+            const counts = Object.entries(data.facets[f]).sort((a, b) => b[1] - a[1]);
+            if (!counts.length) return null;
+            const label = (k: string) => (f === "product" ? k : (data.labels[f as "kind" | "space" | "disclosure"]?.[k] ?? k));
+            return (
+              <div key={f}>
+                <div className="mb-1.5 text-[12px] font-semibold text-ink-3">{FILTER_TITLE[f]}</div>
+                <div className={cx("flex flex-wrap gap-1 lg:flex-col lg:gap-0.5", f === "product" && "lg:max-h-[220px] lg:overflow-auto")}>
+                  {counts.map(([k, n]) => (
+                    <button key={k} onClick={() => push({ [f]: filters[f] === k ? "" : k })}
+                            className={cx("flex items-center gap-2 rounded-md px-2 py-1 text-left text-[13px]",
+                              filters[f] === k ? "bg-brand-soft font-semibold text-brand-ink" : "text-ink-2 hover:bg-surface-2")}>
+                      <span className="flex-1 truncate">{label(k)}</span>
+                      <span className="text-[11.5px] text-ink-3">{n}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </aside>
+
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-3">
+            <span>{data ? `${data.total.toLocaleString()}건` : " "}</span>
+            {data?.loose && <span className="rounded-md bg-warn-soft px-1.5 py-0.5 text-warn">모든 단어가 들어간 문서가 없어, 일부 단어만 맞는 결과입니다</span>}
+            {active.map((f) => (
+              <button key={f} onClick={() => push({ [f]: "" })} className="rounded-full border border-line-strong px-2 py-0.5 hover:bg-surface-2">
+                {FILTER_TITLE[f]}: {f === "product" ? filters[f] : (data?.labels[f as "kind" | "space" | "disclosure"]?.[filters[f]] ?? filters[f])} ×
               </button>
-            )}
+            ))}
           </div>
-        ) : (
-          <Empty>{dq || disclosure ? "조건에 맞는 FAQ 가 없습니다" : "아직 확정된 문서가 없습니다 — [업로드 → SB 문서]에서 확정하면 여기에 모입니다"}</Empty>
-        )}
-      </Card>
-      {list.error && <p className="mt-3 text-[13px] text-err">{list.error}</p>}
+          <Card pad={false}>
+            {res.loading && !data ? <Skeleton rows={6} /> : data?.items.length ? (
+              <div>
+                {data.items.map((h) => <Hit key={h.id} h={h} kindLabel={data.labels.kind[h.kind] ?? h.kind} />)}
+                {data.items.length < data.total && (
+                  <button onClick={() => setLimit((l) => l + PAGE)}
+                          className="block w-full px-5 py-3 text-center text-[13px] font-semibold text-brand-ink hover:bg-surface-2">
+                    더 보기 (남은 {(data.total - data.items.length).toLocaleString()}건)
+                  </button>
+                )}
+              </div>
+            ) : (
+              <Empty>{sp.get("q") || active.length ? "찾는 문서가 없습니다 — 다른 표현(영어 · 모델명)으로 찾아보거나 LLM Wiki 에 물어보세요" : "문서가 없습니다"}</Empty>
+            )}
+          </Card>
+          {res.error && <p className="mt-3 text-[13px] text-err">{res.error}</p>}
+        </div>
+      </div>
     </>
   );
 }
 
-function FaqRow({ f, partners, open, onToggle }: {
-  f: FaqItem; partners: Record<string, string>; open: boolean; onToggle: () => void;
-}) {
+const KIND_TONE: Record<string, string> = {
+  resolution: "bg-info-soft text-info",
+  troubleshooting: "bg-warn-soft text-warn",
+  how_to: "bg-ok-soft text-ok",
+  guide: "bg-muted-soft text-ink-2",
+};
+
+function Hit({ h, kindLabel }: { h: FaqHit; kindLabel: string }) {
   return (
-    <div className="border-b border-line last:border-b-0">
-      <button onClick={onToggle} aria-expanded={open}
-              className={cx("flex w-full items-start gap-3 px-5 py-3.5 text-left", open ? "bg-surface-2" : "hover:bg-surface-2")}>
-        <span className={cx("mt-0.5 text-[13px] text-ink-3 transition-transform", open && "rotate-90")} aria-hidden>▶</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[14.5px] font-semibold leading-snug">{f.title || `#${f.issue_id}`}</span>
-          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink-3">
-            <DisclosureTag v={f.disclosure} />
-            {f.applies_to && <span className="truncate">{f.applies_to}</span>}
-          </span>
-        </span>
-        {f.decided_at && <span className="shrink-0 text-[11.5px] text-ink-3">{kst(f.decided_at).slice(0, 10)}</span>}
-      </button>
-      {open && (
-        <div className="px-5 pb-5 pl-11">
-          {f.applies_to && <div className="mb-2 text-[13px] text-ink-2"><b className="text-ink">Applies to</b> · {f.applies_to}</div>}
-          {f.disclosure === "partner" && f.partners.length > 0 && (
-            <div className="mb-2 text-[12.5px] text-ink-3">공개 파트너 · {f.partners.map((p) => partners[p] ?? p).join(", ")}</div>
-          )}
-          {f.description_html
-            ? <div className="rich rounded-xl border border-line px-4 py-3" dangerouslySetInnerHTML={{ __html: f.description_html }} />
-            : <p className="text-[13px] text-ink-3">본문이 없습니다</p>}
-          <div className="mt-2 flex flex-wrap gap-x-3 text-[12px] text-ink-3">
-            <a href={f.issue_url} target="_blank" rel="noreferrer" className="font-semibold text-brand-ink hover:underline">Redmine #{f.issue_id} ↗</a>
-            {f.revision > 1 && <span>{f.revision}판</span>}
-            {f.decided_by && <span>확정 {f.decided_by}{f.decided_at ? ` · ${kst(f.decided_at)}` : ""}</span>}
-          </div>
-        </div>
+    <Link href={`/faq/${h.id}`} className="block border-b border-line px-5 py-3.5 last:border-b-0 hover:bg-surface-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={cx("rounded-md px-1.5 py-0.5 text-[11px] font-semibold", KIND_TONE[h.kind] ?? KIND_TONE.guide)}>{kindLabel}</span>
+        <DisclosureTag v={h.disclosure} />
+        {h.products.slice(0, 4).map((p) => <span key={p} className="rounded-md border border-line px-1.5 text-[11px] text-ink-2">{p}</span>)}
+        {h.products.length > 4 && <span className="text-[11px] text-ink-3">+{h.products.length - 4}</span>}
+        <span className="ml-auto text-[11.5px] text-ink-3">{kst(h.updated_at).slice(0, 10)}</span>
+      </div>
+      <div className="mt-1 text-[14.5px] font-semibold leading-snug text-ink">{h.title}</div>
+      {h.applies_to && <div className="mt-0.5 truncate text-[12.5px] text-ink-3">Applies to · {h.applies_to}</div>}
+      {h.snippets.length > 0 && (
+        <div className="mt-1 line-clamp-2 whitespace-pre-line text-[12.5px] leading-relaxed text-ink-2"
+             dangerouslySetInnerHTML={{ __html: h.snippets.join(" … ") }} />
       )}
-    </div>
+      <div className="mt-1 flex flex-wrap gap-x-2 text-[11.5px] text-ink-3">
+        {h.category && <span>{h.category}</span>}
+        {h.redmine_issue_ids.slice(0, 3).map((n) => <span key={n}>#{n}</span>)}
+      </div>
+    </Link>
   );
 }
