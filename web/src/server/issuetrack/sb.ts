@@ -19,6 +19,7 @@
 import { z } from "zod";
 import { MODEL, parseStructured } from "../claude";
 import { sql } from "../db";
+import { publishSbDoc, unpublishSbDoc } from "../kb/publish";
 import { isLocked, withLock } from "../locks";
 import { price } from "../usage";
 import { issueUrlMaker } from "./client";
@@ -477,6 +478,7 @@ export async function approve(docId: number, by = ""): Promise<{ ok: boolean; er
   if (!["draft", "notified"].includes(doc.state)) return { ok: false, error: `확정할 수 있는 상태가 아닙니다(state=${doc.state}).` };
   if (!(doc.title || "").trim()) return { ok: false, error: "제목이 비어 있습니다." };
   await sql`UPDATE sb.rm_sb_docs SET state = 'approved', decided_at = now(), decided_by = ${by || null} WHERE id = ${docId}`;
+  await publishSbDoc(docId);           // 확정한 문서는 곧바로 FAQ 에 올라간다
   return { ok: true };
 }
 
@@ -499,6 +501,7 @@ export async function reopenDraft(docId: number): Promise<{ ok: boolean; error?:
   await sql`
     UPDATE sb.rm_sb_docs SET state = ${doc.generated_at ? "draft" : "backlog"}, decided_at = NULL, decided_by = NULL
     WHERE id = ${docId}`;
+  if (doc.state === "approved") await unpublishSbDoc(docId);    // 확정 취소 → FAQ 에서 내린다
   return { ok: true };
 }
 

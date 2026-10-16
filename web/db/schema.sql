@@ -260,3 +260,104 @@ CREATE TABLE IF NOT EXISTS rm_sync_state (
   value      text,
   updated_at timestamptz
 );
+
+-- ── FAQ(지식 저장소) · LLM Wiki ─────────────────────────────────────────────────
+-- 기획: docs/FAQ_PLAN.md. Confluence(SB · Knowledge Articles · Troubleshooting) 이관분과
+-- 이 앱에서 확정한 SB 문서를 한 표에 모은다.
+
+-- 전문 검색 확장 — Supabase 에 있다(로컬 PostgreSQL 에 없으면 건너뛰고, 검색은 ILIKE 로 대신한다).
+-- 이 파일은 search_path 가 sb 라 확장도 sb 스키마에 깔린다 — 연산자 · 함수는 OPERATOR(sb.&@~) · sb.pgroonga_score() 처럼 쓴다.
+DO $$ BEGIN
+  CREATE EXTENSION IF NOT EXISTS pg_trgm;
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'pg_trgm 없음 — 건너뜀'; END $$;
+DO $$ BEGIN
+  CREATE EXTENSION IF NOT EXISTS pgroonga;
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'pgroonga 없음 — 건너뜀'; END $$;
+
+CREATE TABLE IF NOT EXISTS kb_articles (
+  id                serial PRIMARY KEY,
+  kind              varchar(20)  NOT NULL DEFAULT 'guide',      -- resolution | how_to | troubleshooting | guide
+  title             text         NOT NULL DEFAULT '',            -- text 여야 검색 색인 식(ARRAY[title, applies_to, body_text])과 맞는다
+  category          varchar(300) NOT NULL DEFAULT '',           -- Confluence 상위 페이지 경로('Knowledge Articles › Network')
+  labels            text[]       NOT NULL DEFAULT '{}',
+  applies_to        text         NOT NULL DEFAULT '',
+  products          text[]       NOT NULL DEFAULT '{}',          -- 맞춘 모델 코드(PM451 · PM85 …)
+  disclosure        varchar(20)  NOT NULL DEFAULT 'internal',    -- internal | public | partner | ascp
+  body_html         text         NOT NULL DEFAULT '',
+  body_text         text         NOT NULL DEFAULT '',            -- 검색 · LLM 용 평문
+  raw_storage       text,                                        -- Confluence 원본 XHTML(다시 변환할 때)
+  summary           text,                                        -- KCS 칸 — 나중에 LLM 으로 채운다
+  symptom           text,
+  cause             text,
+  resolution        text,
+  source            varchar(20)  NOT NULL DEFAULT 'confluence',  -- confluence | sb
+  source_space      varchar(20),
+  source_page_id    bigint UNIQUE,
+  source_url        text,
+  sb_doc_id         integer UNIQUE REFERENCES rm_sb_docs(id) ON DELETE SET NULL,
+  redmine_issue_ids integer[]    NOT NULL DEFAULT '{}',
+  state             varchar(20)  NOT NULL DEFAULT 'published',   -- published | archived
+  author            varchar(120) NOT NULL DEFAULT '',
+  approved_by       varchar(120),
+  approved_at       timestamptz,
+  created_at        timestamptz  NOT NULL DEFAULT now(),
+  updated_at        timestamptz  NOT NULL DEFAULT now(),
+  view_count        integer      NOT NULL DEFAULT 0,
+  helpful_up        integer      NOT NULL DEFAULT 0,
+  helpful_down      integer      NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS ix_kb_state      ON kb_articles (state);
+CREATE INDEX IF NOT EXISTS ix_kb_kind       ON kb_articles (kind);
+CREATE INDEX IF NOT EXISTS ix_kb_products   ON kb_articles USING gin (products);
+CREATE INDEX IF NOT EXISTS ix_kb_labels     ON kb_articles USING gin (labels);
+CREATE INDEX IF NOT EXISTS ix_kb_issues     ON kb_articles USING gin (redmine_issue_ids);
+CREATE INDEX IF NOT EXISTS ix_kb_updated    ON kb_articles (updated_at DESC);
+DO $$ BEGIN
+  DROP INDEX IF EXISTS ix_kb_pgroonga;
+  CREATE INDEX IF NOT EXISTS ix_kb_search ON kb_articles USING pgroonga ((ARRAY[title, applies_to, body_text]));
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'pgroonga 색인 건너뜀'; END $$;
+DO $$ BEGIN
+  CREATE INDEX IF NOT EXISTS ix_kb_title_trgm ON kb_articles USING gin (title gin_trgm_ops);
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'pg_trgm 색인 건너뜀'; END $$;
+
+-- 첨부 — 이미지는 본문에서 /api/kb/files/<id> 로 부른다. storage_path 가 있으면 Supabase Storage, 없으면 원본(Confluence)에서 받아 전달.
+CREATE TABLE IF NOT EXISTS kb_attachments (
+  id                   serial PRIMARY KEY,
+  article_id           integer NOT NULL REFERENCES kb_articles(id) ON DELETE CASCADE,
+  source_attachment_id bigint UNIQUE,
+  filename             varchar(500) NOT NULL,
+  media_type           varchar(200) NOT NULL DEFAULT '',
+  size                 bigint       NOT NULL DEFAULT 0,
+  is_image             boolean      NOT NULL DEFAULT false,
+  source_url           text,
+  storage_path         text,
+  created_at           timestamptz  NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_kb_att_article ON kb_attachments (article_id);
+
+-- LLM Wiki 질문 기록 — '못 찾음' · 👎 를 모아 새 문서 거리로 쓴다.
+CREATE TABLE IF NOT EXISTS qa_logs (
+  id            bigserial PRIMARY KEY,
+  user_id       integer REFERENCES users(id) ON DELETE SET NULL,
+  username      varchar(80) NOT NULL DEFAULT '',
+  question      text        NOT NULL,
+  answer        text        NOT NULL DEFAULT '',
+  cited_ids     integer[]   NOT NULL DEFAULT '{}',
+  searches      jsonb       NOT NULL DEFAULT '[]'::jsonb,   -- 에이전트가 부른 검색(검색어 · 결과 id)
+  found         boolean,
+  rating        smallint,                                   -- 1 · -1
+  comment       text,
+  model         varchar(60),
+  input_tokens  integer     NOT NULL DEFAULT 0,
+  output_tokens integer     NOT NULL DEFAULT 0,
+  error         text,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_qa_created ON qa_logs (created_at DESC);
+
+-- 첨부 내용(이미지) — Supabase Storage 를 붙이기 전까지 DB 에 둔다. 큰 파일(zip · apk · mp4 …)은 원본 링크로.
+CREATE TABLE IF NOT EXISTS kb_files (
+  attachment_id integer PRIMARY KEY REFERENCES kb_attachments(id) ON DELETE CASCADE,
+  data          bytea   NOT NULL,
+  sha256        varchar(64) NOT NULL
+);
