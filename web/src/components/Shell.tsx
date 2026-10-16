@@ -8,13 +8,29 @@ import { Icon } from "./Icons";
 import { ThemeCycle, ThemeSwitch } from "./ThemeToggle";
 import { cx } from "./ui";
 
-const NAV = [
-  { href: "/", label: "SB 문서", icon: "file", count: (o?: IssueOverview | null) => o?.sb_open ?? 0, hot: true },
-  { href: "/issues", label: "이슈", icon: "bug" },
-  { href: "/stats", label: "통계", icon: "rounds" },
-  { href: "/usage", label: "Claude 사용량", icon: "sparkle" },
-  { href: "/settings", label: "설정", icon: "gear", count: (_o?: IssueOverview | null, m?: Me | null) => m?.pending_signups ?? 0, hot: true },
-]
+type NavItem = {
+  href: string; label: string; icon: string; hot?: boolean;
+  count?: (o?: IssueOverview | null, m?: Me | null) => number;
+};
+
+// 묶음(label 이 있으면 머리글을 단다) → 메뉴. 업로드 = Redmine 이슈로 SB 문서를 만들어 확정하기까지.
+const NAV: { label?: string; icon?: string; items: NavItem[] }[] = [
+  { items: [{ href: "/faq", label: "FAQ", icon: "help" }] },
+  {
+    label: "업로드", icon: "upload",
+    items: [
+      { href: "/", label: "SB 문서", icon: "file", count: (o) => o?.sb_open ?? 0, hot: true },
+      { href: "/issues", label: "이슈", icon: "bug" },
+      { href: "/stats", label: "통계", icon: "rounds" },
+    ],
+  },
+  {
+    items: [
+      { href: "/usage", label: "Claude 사용량", icon: "sparkle" },
+      { href: "/settings", label: "설정", icon: "gear", count: (_o, m) => m?.pending_signups ?? 0, hot: true },
+    ],
+  },
+];
 
 const ROLE: Record<string, string> = { admin: "관리자", user: "담당자" };
 
@@ -44,19 +60,30 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <ThemeCycle className="text-side-dim hover:bg-side-hover hover:text-side-strong lg:hidden" />
         </div>
         <nav className="flex flex-row flex-wrap gap-1 lg:flex-col">
-          {NAV.map((n) => {
-            const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
-            const c = n.count?.(ov.data, me.data) ?? 0;     // 설정의 숫자 = 가입 승인 대기(관리자)
-            return (
-              <Link key={n.href} href={n.href}
-                    className={cx("flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors",
-                      active ? "bg-side-active font-semibold text-side-active-text" : "hover:bg-side-hover hover:text-side-strong")}>
-                <Icon name={n.icon} className="h-[18px] w-[18px] opacity-85" />
-                <span className="flex-1">{n.label}</span>
-                {c > 0 && <span className={cx("rounded-full px-2 text-[11px] font-bold", n.hot ? "bg-[#d97706] text-white" : "text-side-dim")}>{c}</span>}
-              </Link>
-            );
-          })}
+          {NAV.map((g, gi) => (
+            <div key={g.label ?? gi} className={cx("contents lg:block", gi > 0 && "lg:mt-2")}>
+              {g.label && (
+                <div className="hidden items-center gap-2 px-2.5 pb-1 pt-1 text-[11.5px] font-semibold uppercase tracking-wide text-side-dim lg:flex">
+                  {g.icon && <Icon name={g.icon} className="h-3.5 w-3.5" />}
+                  {g.label}
+                </div>
+              )}
+              {g.items.map((n) => {
+                const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
+                const c = n.count?.(ov.data, me.data) ?? 0;     // 설정의 숫자 = 가입 승인 대기(관리자)
+                return (
+                  <Link key={n.href} href={n.href}
+                        className={cx("flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors",
+                          g.label && "lg:pl-5",
+                          active ? "bg-side-active font-semibold text-side-active-text" : "hover:bg-side-hover hover:text-side-strong")}>
+                    <Icon name={n.icon} className="h-[18px] w-[18px] opacity-85" />
+                    <span className="flex-1">{n.label}</span>
+                    {c > 0 && <span className={cx("rounded-full px-2 text-[11px] font-bold", n.hot ? "bg-[#d97706] text-white" : "text-side-dim")}>{c}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className="mt-auto hidden border-t border-side-line pt-3 lg:block">
           <ThemeSwitch className="mb-2" />

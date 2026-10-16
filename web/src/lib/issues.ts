@@ -111,3 +111,13 @@ export function kst(iso: string) {
   if (!iso) return "";
   return iso.slice(0, 16).replace("T", " ");
 }
+
+/** FAQ(/api/faq) — 확정된 SB 문서 */
+export type FaqItem = {
+  id: number; issue_id: number; revision: number; title: string; troubleshooting: boolean; disclosure: string;
+  applies_to: string; description_html: string; partners: string[]; decided_at: string; decided_by: string; issue_url: string;
+};
+export type FaqList = {
+  total: number; counts: Record<string, number>; disclosures: Record<string, string>;
+  partners: Record<string, string>; items: FaqItem[];
+};
