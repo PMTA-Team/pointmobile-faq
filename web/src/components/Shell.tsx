@@ -24,7 +24,7 @@ const NAV: { label?: string; icon?: string; items: NavItem[] }[] = [
   {
     label: "업로드", icon: "upload",
     items: [
-      { href: "/", label: "SB 문서", icon: "file", count: (o) => o?.sb_open ?? 0, hot: true },
+      { href: "/sb", label: "SB 문서", icon: "file", count: (o) => o?.sb_open ?? 0, hot: true },
       { href: "/issues", label: "이슈", icon: "bug" },
       { href: "/stats", label: "통계", icon: "rounds" },
     ],
@@ -55,7 +55,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[240px_1fr]">
       <aside className="sticky top-0 z-10 flex flex-col gap-1 border-b border-side-line bg-side px-3 py-4 text-side-text lg:h-screen lg:border-b-0 lg:border-r">
         <div className="mb-3 flex items-center">
-        <Link href="/" className="flex flex-1 items-center gap-2.5 px-2 text-side-strong">
+        <Link href="/faq" className="flex flex-1 items-center gap-2.5 px-2 text-side-strong">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-[#14b8a6] to-[#0d9488] text-[13px] font-extrabold text-white">TA</span>
           <span>
             <span className="block text-[15px] font-bold leading-tight">TA FAQ</span>
@@ -74,7 +74,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 </div>
               )}
               {g.items.map((n) => {
-                const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
+                const active = path === n.href || path.startsWith(n.href + "/");
                 const c = n.count?.(ov.data, me.data) ?? 0;     // 설정의 숫자 = 가입 승인 대기(관리자)
                 return (
                   <Link key={n.href} href={n.href}

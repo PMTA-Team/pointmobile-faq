@@ -35,7 +35,7 @@ function check(name: string, ok: boolean, info = "") {
 try {
   await sql`INSERT INTO sb.users (username, password_hash, role, status) VALUES (${USER}, ${hashPassword(PW)}, 'admin', 'approved')`;
 
-  for (const p of ["/login", "/signup", "/", "/issues", "/stats", "/usage", "/settings", "/settings/shadow", "/settings/claude"]) {
+  for (const p of ["/login", "/signup", "/faq", "/sb", "/issues", "/stats", "/usage", "/settings", "/settings/shadow", "/settings/claude"]) {
     const r = await call("GET", p);
     check(`화면 ${p}`, r.status === 200, String(r.status));
   }

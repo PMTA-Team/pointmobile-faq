@@ -409,7 +409,7 @@ export async function notify(docId: number): Promise<{ sent: boolean; error?: st
     문서제목: (doc.title || "").slice(0, 50),
     정보표: rows.join("\n") + "\n",
     대신보냄: fallback ? `\n※ 담당자(${assignee}) 메일 주소를 규칙으로 만들지 못해 관리자에게 대신 보냅니다.\n` : "",
-    화면주소: `${appUrl()}/`,
+    화면주소: `${appUrl()}/sb`,
   });
   const { sbReviewHtml } = await import("../mailHtml");
   const { htmlToText } = await import("../kb/text");
@@ -419,7 +419,7 @@ export async function notify(docId: number): Promise<{ sent: boolean; error?: st
     disclosure: doc.disclosure, disclosureKo: DISCLOSURES[doc.disclosure] ?? "", reason: doc.disclosure_reason || "",
     appliesTo: doc.applies_to || "", revision: doc.revision, fallback,
     preview: preview.length > 700 ? preview.slice(0, 700) + " …" : preview,
-    docUrl: `${appUrl()}/?doc=${doc.id}`,     // SB 문서 화면이 이 문서를 먼저 고른다
+    docUrl: `${appUrl()}/sb?doc=${doc.id}`,     // SB 문서 화면이 이 문서를 먼저 고른다
   });
   const [ok, err] = await sendAsUser(uid, to, mailSubject, body, { html });
   if (!ok) return { sent: false, error: err, to };

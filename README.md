@@ -48,9 +48,9 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1     # 3070 + 5분 주
 
 ## 화면
 
-- `/faq` FAQ — 처리한 이슈의 기록(해결 사례)과 Confluence 에서 옮긴 How-to · Troubleshooting 문서 검색 · 열람(`/faq/<id>`)
+- `/faq` FAQ(홈 — `/` 로 들어오면 여기로) — 처리한 이슈의 기록(해결 사례)과 Confluence 에서 옮긴 How-to · Troubleshooting 문서 검색 · 열람(`/faq/<id>`)
 - `/wiki` LLM Wiki — 질문하면 Claude 가 FAQ 를 찾아 읽고 출처를 단 해결 가이드를 준다
-- `/` SB 문서(업로드) — 내 담당 문서(관리자는 전체). 편집 · 검토 요청 · 확정(→ FAQ 에 올라감) · 폐기
+- `/sb` SB 문서(업로드) — 내 담당 문서(관리자는 전체). 편집 · 검토 요청 · 확정(→ FAQ 에 올라감) · 폐기
 - `/issues` 이슈 — Redmine 이슈 목록 · 타임라인
 - `/stats` 통계(업무일 기준 — 주말 · 한국 공휴일 제외, `server/issuetrack/krHolidays.ts`)
 - `/usage` Claude 사용량
