@@ -83,7 +83,7 @@ export default function FaqArticlePage({ params }: { params: Promise<{ id: strin
                   Confluence · {d.labels.space[a.source_space ?? ""] ?? a.source_space} ↗
                 </a>
               )}
-              {a.source === "sb" && <span className="block text-ink-2">업로드 → SB 문서에서 확정</span>}
+              {a.source === "sb" && <span className="block text-ink-2">업로드에서 확정</span>}
               {a.labels.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-1">
                   {a.labels.map((l) => <span key={l} className="rounded-md bg-muted-soft px-1.5 text-[11px] text-ink-2">{l}</span>)}

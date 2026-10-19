@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ago, api, useApi } from "@/lib/api";
 import type { IssueOverview } from "@/lib/issues";
 import { PageHead } from "@/components/ui";
 import { Btn, ToastHost, useToast } from "@/components/issues/kit";
 
 
+// 세 화면이 같은 머리(수집 상태 · 지금 동기화)를 쓴다 — 제목만 화면마다.
+const TITLE: Record<string, string> = { "/sb": "업로드", "/issues": "Sales Issue", "/stats": "팀 운영 대시보드" };
+
 function Head() {
+  const path = usePathname();
   const ov = useApi<IssueOverview>("/api/issues/overview", 30_000);
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -58,7 +63,7 @@ function Head() {
   return (
     <>
       <PageHead
-        title="업로드"
+        title={TITLE[Object.keys(TITLE).find((k) => path.startsWith(k)) ?? "/sb"]}
         lead="Redmine salesissue 를 5분마다 수집하고, Resolved 된 이슈를 SB 문서 초안으로 만든다. 담당자가 검토하고 확정하면 FAQ 에 올라간다."
         right={
           <div className="flex items-center gap-3">

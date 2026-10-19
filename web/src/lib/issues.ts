@@ -1,4 +1,4 @@
-// 업로드(SB 문서 · 이슈 · 통계) · FAQ 응답 타입과 표시 도우미
+// 업로드(SB 문서) · Sales Issue · 팀 운영 대시보드 · FAQ 응답 타입과 표시 도우미
 
 export type IssueOverview = {
   me: string; admin: boolean; sb_open: number;

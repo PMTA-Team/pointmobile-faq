@@ -13,8 +13,8 @@ type NavItem = {
   count?: (o?: IssueOverview | null, m?: Me | null) => number;
 };
 
-// 묶음(label 이 있으면 머리글을 단다) → 메뉴. 업로드 = Redmine 이슈로 SB 문서를 만들어 확정하기까지.
-const NAV: { label?: string; icon?: string; items: NavItem[] }[] = [
+// 묶음 → 메뉴. 묶음 사이에는 구분선을 긋는다(머리글 없이).
+const NAV: { items: NavItem[] }[] = [
   {
     items: [
       { href: "/faq", label: "FAQ", icon: "help" },
@@ -22,11 +22,10 @@ const NAV: { label?: string; icon?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: "업로드", icon: "upload",
     items: [
-      { href: "/sb", label: "SB 문서", icon: "file", count: (o) => o?.sb_open ?? 0, hot: true },
-      { href: "/issues", label: "이슈", icon: "bug" },
-      { href: "/stats", label: "통계", icon: "rounds" },
+      { href: "/sb", label: "업로드", icon: "upload", count: (o) => o?.sb_open ?? 0, hot: true },
+      { href: "/issues", label: "Sales Issue", icon: "bug" },
+      { href: "/stats", label: "팀 운영 대시보드", icon: "rounds" },
     ],
   },
   {
@@ -66,20 +65,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="flex flex-row flex-wrap gap-1 lg:flex-col">
           {NAV.map((g, gi) => (
-            <div key={g.label ?? gi} className={cx("contents lg:block", gi > 0 && "lg:mt-2")}>
-              {g.label && (
-                <div className="hidden items-center gap-2 px-2.5 pb-1 pt-1 text-[11.5px] font-semibold uppercase tracking-wide text-side-dim lg:flex">
-                  {g.icon && <Icon name={g.icon} className="h-3.5 w-3.5" />}
-                  {g.label}
-                </div>
-              )}
+            <div key={gi} className="contents lg:block">
+              {gi > 0 && <div className="mx-2.5 my-2 hidden border-t border-side-line lg:block" role="separator" />}
               {g.items.map((n) => {
                 const active = path === n.href || path.startsWith(n.href + "/");
                 const c = n.count?.(ov.data, me.data) ?? 0;     // 설정의 숫자 = 가입 승인 대기(관리자)
                 return (
                   <Link key={n.href} href={n.href}
                         className={cx("flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors",
-                          g.label && "lg:pl-5",
                           active ? "bg-side-active font-semibold text-side-active-text" : "hover:bg-side-hover hover:text-side-strong")}>
                     <Icon name={n.icon} className="h-[18px] w-[18px] opacity-85" />
                     <span className="flex-1">{n.label}</span>
