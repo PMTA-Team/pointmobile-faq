@@ -19,7 +19,7 @@ export default function MailSettings() {
         </div>
         <div className="rounded-xl bg-surface-2 px-4 py-3">
           <div className="text-[12px] font-semibold text-ink-3">내 회신 주소</div>
-          <div className="mt-0.5 text-[14px]">{s.sender.my_address || <span className="text-err">찾지 못함 — 사내 인원 명부에 주소를 넣으면 잡힙니다</span>}</div>
+          <div className="mt-0.5 text-[14px]">{s.sender.my_address || <span className="text-err">찾지 못함 — 로그인 아이디를 메일 주소로 쓰면 잡힙니다</span>}</div>
         </div>
       </div>
       {s.sender.relay_owner ? (

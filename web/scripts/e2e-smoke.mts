@@ -66,8 +66,7 @@ try {
   check("관리 설정", set.status === 200 && (set.json?.claude as Record<string, unknown>)?.backend === "api",
         `web=${(set.json?.web as { target: string }[])?.map((w) => w.target)}`);
   check("계정 목록", (await call("GET", "/api/admin/accounts")).status === 200);
-  check("인원 목록", (await call("GET", "/api/admin/staff")).status === 200);
-  check("메일 문구", (await call("GET", "/api/admin/mail-templates")).status === 200);
+  check("없앤 설정 화면 404", (await call("GET", "/api/admin/staff")).status === 404);
   check("사용량", (await call("GET", "/api/admin/usage")).status === 200);
   const sh = await call("GET", "/api/shadow");
   check("검증 모드 기록", sh.status === 200 && Array.isArray(sh.json?.writes), `runtime=${JSON.stringify(sh.json?.runtime)}`);

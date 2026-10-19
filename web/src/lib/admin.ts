@@ -46,16 +46,6 @@ export type AccountsResp = {
   system_from: string; system_from_name: string; initial_password: string;
 };
 
-export type StaffRow = {
-  id: number; name: string; email: string; status: string; team: string; memo: string; updated_by?: string;
-};
-
-export type MailTpl = {
-  key: string; title: string; group: string; when: string; to: string; subject: string; body: string;
-  vars: Record<string, string>; auto: Record<string, string>; default_subject: string; default_body: string;
-  edited: boolean; updated_by: string; updated_at: string;
-};
-
 export type UsageBucket = { cost: number; tokens: number; calls: number };
 export type UsageResp = {
   totals: { today: UsageBucket; month: UsageBucket; all: UsageBucket };

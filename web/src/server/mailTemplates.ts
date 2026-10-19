@@ -1,8 +1,7 @@
 /**
- * 앱이 보내는 메일의 **문구 모음**. 화면([설정] → 메일 문구)에서 고칠 수 있다.
+ * 앱이 보내는 메일의 **문구 모음**. 고치려면 이 파일을 고친다.
  *
- * 여기 있는 것은 기본 문구다. 사람이 고치면 sb.mail_templates 에 그것만 저장되고, 고친 적이 없으면
- * 기본 문구가 그대로 쓰인다. '기본값으로 되돌리기'는 저장된 행을 지우는 일이다.
+ * 예전 화면에서 고쳐 sb.mail_templates 에 남은 문구가 있으면 그것이 우선한다(지우면 기본 문구로 돌아간다).
  *
  * 문구 안의 {{이름}} 은 보낼 때 실제 값으로 바뀐다. {{앱주소}}·{{문의주소}}·{{오늘}} 은 어느 문구에서나
  * 쓸 수 있다(AUTO). 아는 이름이 아닌 {{...}} 는 손대지 않고 그대로 둔다(오타 때문에 발송이 실패하지 않게).
@@ -10,7 +9,7 @@
  */
 import { sql } from "./db";
 import { appUrl, systemAdminEmails } from "./mailer";
-import { kstDay, kstMinute } from "./time";
+import { kstDay } from "./time";
 
 const VAR = /\{\{\s*([^{}\s]+)\s*\}\}/g;
 
@@ -160,91 +159,19 @@ add({
   },
 });
 
-// ── 저장·읽기 ────────────────────────────────────────────────────────────────
-
-export function groups(): string[] {
-  const out: string[] = [];
-  for (const t of Object.values(TEMPLATES)) if (!out.includes(t.group)) out.push(t.group);
-  return out;
-}
-
-export type TplState = Omit<Tpl, never> & {
-  auto: Record<string, string>; default_subject: string; default_body: string;
-  edited: boolean; updated_by: string; updated_at: string;
-};
-
-/** 고친 것이 있으면 그것. updated_at 은 'YYYY-MM-DD HH:MM'(KST). 없는 문구면 null. */
-export async function get(key: string): Promise<TplState | null> {
-  const t = TEMPLATES[key];
-  if (!t) return null;
-  let subject = t.subject, body = t.body, edited = false, by = "", at: Date | null = null;
-  const [row] = await sql<{ subject: string; body: string; updated_by: string; updated_at: Date }[]>`
-    SELECT subject, body, updated_by, updated_at FROM sb.mail_templates WHERE key = ${key}`;
-  if (row) {
-    subject = row.subject; body = row.body; edited = true; by = row.updated_by; at = row.updated_at;
-  }
-  return {
-    key, title: t.title, group: t.group, when: t.when, to: t.to, subject, body,
-    vars: { ...t.vars }, auto: { ...AUTO }, default_subject: t.subject, default_body: t.body,
-    edited, updated_by: by, updated_at: kstMinute(at),
-  };
-}
-
-export async function save(key: string, subject: string, body: string, actor = ""): Promise<[boolean, string]> {
-  if (!TEMPLATES[key]) return [false, "없는 문구입니다."];
-  if (!(subject || "").trim()) return [false, "제목을 비워 둘 수 없습니다."];
-  if (!(body || "").trim()) return [false, "본문을 비워 둘 수 없습니다."];
-  await sql`
-    INSERT INTO sb.mail_templates (key, subject, body, updated_by, updated_at) VALUES (${key}, ${subject}, ${body}, ${actor}, now())
-    ON CONFLICT (key) DO UPDATE SET subject = EXCLUDED.subject, body = EXCLUDED.body,
-      updated_by = EXCLUDED.updated_by, updated_at = now()`;
-  return [true, "저장했습니다."];
-}
-
-/** 고친 것을 지워 기본 문구로 되돌린다. */
-export async function reset(key: string): Promise<[boolean, string]> {
-  const r = await sql`DELETE FROM sb.mail_templates WHERE key = ${key} RETURNING id`;
-  return r.length ? [true, "기본 문구로 되돌렸습니다."] : [true, "이미 기본 문구입니다."];
-}
-
-function used(subject: string, body: string): Set<string> {
-  const s = new Set<string>();
-  for (const m of (subject || "").matchAll(VAR)) s.add(m[1]);
-  for (const m of (body || "").matchAll(VAR)) s.add(m[1]);
-  return s;
-}
-
-/** 문구에 쓰였지만 값이 채워지지 않는 이름들. */
-export function unknownVars(key: string, subject: string, body: string): string[] {
-  const known = new Set([...Object.keys(TEMPLATES[key]?.vars ?? {}), ...Object.keys(AUTO)]);
-  return [...used(subject, body)].filter((n) => !known.has(n)).sort();
-}
-
-/** 이 문구만의 값인데 문구에서 빠진 이름들(AUTO 는 세지 않는다). */
-export function missingVars(key: string, subject: string, body: string): string[] {
-  const u = used(subject, body);
-  return Object.keys(TEMPLATES[key]?.vars ?? {}).filter((n) => !u.has(n)).sort();
-}
+// ── 만들기 ──────────────────────────────────────────────────────────────────
 
 /** {{이름}} 을 값으로 바꾼다. 모르는 이름은 그대로 둔다. */
-export function fill(text: string, values: Record<string, string | number>): string {
+function fill(text: string, values: Record<string, string | number>): string {
   return (text || "").replace(VAR, (all, name: string) => (name in values ? String(values[name]) : all));
 }
 
-/** [제목, 본문]. 고친 문구가 있으면 그것으로 만든다. 부르는 쪽 값이 AUTO 보다 우선. */
+/** [제목, 본문]. 고친 문구가 남아 있으면 그것으로 만든다. 부르는 쪽 값이 AUTO 보다 우선. */
 export async function render(key: string, values: Record<string, string | number>): Promise<[string, string]> {
-  const cur = await get(key);
-  if (!cur) return ["", ""];
+  const t = TEMPLATES[key];
+  if (!t) return ["", ""];
+  const [row] = await sql<{ subject: string; body: string }[]>`
+    SELECT subject, body FROM sb.mail_templates WHERE key = ${key}`;
   const vals = { ...(await autoValues()), ...values };
-  return [fill(cur.subject, vals), fill(cur.body, vals)];
-}
-
-/** 미리보기용 예시 값 — 설명에서 따옴표 안의 예시를 뽑고, 없으면 이름을 쓴다. */
-export async function sample(key: string): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
-  for (const [name, desc] of [...Object.entries(TEMPLATES[key]?.vars ?? {}), ...Object.entries(AUTO)]) {
-    const m = /'([^']*)'/.exec(desc || "");
-    out[name] = m ? m[1] : `(${name})`;
-  }
-  return { ...out, ...(await autoValues()) };
+  return [fill(row?.subject ?? t.subject, vals), fill(row?.body ?? t.body, vals)];
 }

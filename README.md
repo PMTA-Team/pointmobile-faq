@@ -54,7 +54,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1     # 3070 + 5분 주
 - `/issues` 이슈 — Redmine 이슈 목록 · 타임라인
 - `/stats` 통계(업무일 기준 — 주말 · 한국 공휴일 제외, `server/issuetrack/krHolidays.ts`)
 - `/usage` Claude 사용량
-- `/settings` 검증 모드 · Redmine · 메일 발송 · Claude · SB 동작 · 계정 · 사내 인원 · 메일 문구 · 비밀번호
+- `/settings` 검증 모드 · Redmine · 메일 발송 · Claude · SB 동작 · 계정 · 비밀번호
 
 ## FAQ · LLM Wiki
 

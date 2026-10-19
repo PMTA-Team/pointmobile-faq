@@ -19,14 +19,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     ],
   },
   { title: "SB 문서", items: [{ href: "/settings/sb", label: "동작 설정" }] },
-  {
-    title: "사람",
-    items: [
-      { href: "/settings/accounts", label: "계정", admin: true },
-      { href: "/settings/staff", label: "사내 인원", admin: true },
-    ],
-  },
-  { title: "문서", items: [{ href: "/settings/mail-templates", label: "메일 문구", admin: true }] },
+  { title: "사람", items: [{ href: "/settings/accounts", label: "계정", admin: true }] },
   { title: "내 계정", items: [{ href: "/settings/password", label: "비밀번호 변경" }] },
 ]
 
