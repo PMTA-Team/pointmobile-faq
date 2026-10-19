@@ -6,6 +6,7 @@ import { DISCLOSURE_TONE, kst, SB_STATE_TONE, type SbDoc, type SbList } from "@/
 import { cx } from "@/components/ui";
 import { Btn, Modal, useToast } from "./kit";
 import { RichEditor } from "./RichEditor";
+import { SbAssist } from "./SbAssist";
 
 type Form = { title: string; disclosure: string; applies_to: string; description_html: string; partners: string[] };
 
@@ -220,6 +221,8 @@ export function SbDocPanel({ doc, meta, onChanged }: { doc: SbDoc; meta: SbList;
               <RichEditor value={form.description_html} onChange={(h) => setForm((f) => ({ ...f, description_html: h }))}
                           placeholder="배경 → 증상 → 원인 → 해결 순서로 작성" />
             </div>
+            <SbAssist key={doc.id} docId={doc.id} form={form}
+                      onApply={(d) => setForm((f) => ({ ...f, ...d }))} />
 
           </>
         )}
