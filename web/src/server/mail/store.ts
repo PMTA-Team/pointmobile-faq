@@ -5,6 +5,7 @@
  * 최근 60일 안에 오간 스레드 ③ 그래도 없으면 새 스레드. Message-ID 가 같으면 다시 넣지 않는다(중복 수집 안전).
  */
 import { sql } from "../db";
+import { assigneeSet, loadSbSettings } from "../issuetrack/settings";
 import { cleanBody, isReplySubject, noiseOf, staffName, subjectKey } from "./rules";
 
 export type MailIn = {
@@ -91,7 +92,11 @@ export async function refreshThread(threadId: number): Promise<void> {
     const n = staffName(x.from_addr);
     if (n) count.set(n, (count.get(n) ?? 0) + 1);
   }
-  const handler = [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+  // 담당 = 답장한 TA 담당자([설정 → SB 동작]의 담당자 목록) 중 가장 많이 쓴 사람. TA 가 없으면 가장 많이 쓴 사내 계정
+  // (영업 · 운영 쪽이 문의를 전달한 메일이 많아, 그냥 많이 쓴 사람으로 정하면 전달한 사람이 담당이 된다).
+  const ta = assigneeSet(await loadSbSettings());
+  const ranked = [...count].sort((a, b) => b[1] - a[1]);
+  const handler = (ranked.find(([n]) => ta.has(n)) ?? ranked[0])?.[0] ?? "";
   const times = msgs.map((x) => x.sent_at).filter((t): t is Date => Boolean(t)).map((t) => t.getTime());
   await sql`
     UPDATE sb.mail_threads SET
