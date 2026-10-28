@@ -71,6 +71,12 @@ export async function attachmentPath(articleId: number, filename: string): Promi
   return `${root}/attachments/${articleId}/${safeName(filename)}`;
 }
 
+/** 메일 첨부 경로 — <root>/mail/<스레드 id>/<파일명>. 같은 이름이 있으면 앞에 메일 id 를 붙인다(호출부가 정한다). */
+export async function mailPath(threadId: number, filename: string): Promise<string> {
+  const { root } = await auth();
+  return `${root}/mail/${threadId}/${safeName(filename)}`;
+}
+
 /** 올린다(같은 경로면 덮어쓴다). 큰 파일은 나눠 올린다. */
 export async function upload(path: string, data: Uint8Array): Promise<void> {
   if (data.length <= SIMPLE_LIMIT) {
@@ -86,6 +92,12 @@ export async function upload(path: string, data: Uint8Array): Promise<void> {
   }
   await content("files/upload_session/finish",
     { cursor: { session_id: start.session_id, offset }, commit: { path, mode: "overwrite", mute: true } }, data.subarray(offset));
+}
+
+/** 계정 사용량(바이트) — 큰 소급 전에 남은 공간을 본다. */
+export async function spaceUsage(): Promise<{ used: number; allocated: number }> {
+  const r = await rpc<{ used: number; allocation: { allocated?: number } }>("users/get_space_usage", null);
+  return { used: r.used, allocated: r.allocation?.allocated ?? 0 };
 }
 
 /** 4시간짜리 임시 직링크 — 로그인한 사람에게만 이 주소로 보낸다. */

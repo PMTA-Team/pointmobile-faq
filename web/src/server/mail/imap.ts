@@ -10,6 +10,7 @@ import { ImapFlow } from "imapflow";
 import { simpleParser, type AddressObject } from "mailparser";
 import { sql } from "../db";
 import { inboxIdentity, systemFrom } from "../mailer";
+import { filesOf, uploadPending } from "./attachments";
 import { saveMail } from "./store";
 
 const K_UID = "mail_uid";               // "<uidvalidity>:<마지막 uid>"
@@ -29,7 +30,10 @@ async function setState(key: string, value: string): Promise<void> {
 const addrs = (a: AddressObject | AddressObject[] | undefined) =>
   (Array.isArray(a) ? a : a ? [a] : []).flatMap((x) => x.value.map((v) => v.address || "")).filter(Boolean).join(", ");
 
-export type IngestResult = { fetched: number; saved: number; last_uid: number; more: boolean; error?: string };
+export type IngestResult = {
+  fetched: number; saved: number; last_uid: number; more: boolean; error?: string;
+  files?: { uploaded: number; failed: number };
+};
 
 /** 새 메일을 받아 스레드에 넣는다. deadline 전에 멈추고, 남은 것은 다음 주기에. */
 export async function ingestInbox(deadline: number): Promise<IngestResult> {
@@ -43,6 +47,7 @@ export async function ingestInbox(deadline: number): Promise<IngestResult> {
   });
   await client.connect();
   let fetched = 0, saved = 0, last = 0, more = false;
+  let files = { uploaded: 0, failed: 0 };
   try {
     const lock = await client.getMailboxLock("INBOX", { readOnly: true });
     try {
@@ -55,7 +60,7 @@ export async function ingestInbox(deadline: number): Promise<IngestResult> {
       const take = uids.slice(0, BATCH);
       more = uids.length > take.length;
       if (take.length) {
-        for await (const msg of client.fetch(take.join(","), { uid: true, source: { maxLength: MAX_SOURCE } }, { uid: true })) {
+        for await (const msg of client.fetch(take.join(","), { uid: true, bodyStructure: true, source: { maxLength: MAX_SOURCE } }, { uid: true })) {
           if (Date.now() > deadline) { more = true; break; }
           fetched++;
           try {
@@ -75,6 +80,7 @@ export async function ingestInbox(deadline: number): Promise<IngestResult> {
               sentAt: p.date ?? null,
               text: p.text || "",
               attachments: (p.attachments || []).filter((a) => a.contentDisposition !== "inline").map((a) => a.filename || "").filter(Boolean),
+              files: filesOf(msg.bodyStructure),
             }, own);
             if (r !== null) saved++;
           } catch (e) {
@@ -84,11 +90,13 @@ export async function ingestInbox(deadline: number): Promise<IngestResult> {
         }
         await setState(K_UID, `${validity}:${last}`);
       }
+      // 업로드 문서가 된 스레드의 첨부를 같은 연결로 받아 Dropbox 에 올린다
+      files = await uploadPending(client, deadline);
     } finally {
       lock.release();
     }
   } finally {
     await client.logout().catch(() => {});
   }
-  return { fetched, saved, last_uid: last, more };
+  return { fetched, saved, last_uid: last, more, files };
 }

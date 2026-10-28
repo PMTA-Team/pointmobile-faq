@@ -6,6 +6,7 @@
  */
 import { sql } from "../db";
 import { assigneeSet, loadSbSettings } from "../issuetrack/settings";
+import { recordFiles, type FileMeta } from "./attachments";
 import { cleanBody, isReplySubject, noiseOf, staffName, subjectKey } from "./rules";
 
 export type MailIn = {
@@ -21,14 +22,16 @@ export type MailIn = {
   sentAt: Date | null;
   text: string;
   attachments?: string[];
+  /** 받을 수 있는 첨부(메일 서버의 파트 번호 포함) — 사람이 볼 메일이면 목록을 적어 둔다. */
+  files?: FileMeta[];
 };
 
 const SAME_SUBJECT_DAYS = 60;
 
 const ids = (s: string | undefined) => (s || "").match(/<[^<>\s]+>/g) ?? [];
 
-/** 넣었으면 스레드 id, 이미 있던 메일이면 null. own = 앱이 보내는 주소들(앱 알림은 잡음). */
-export async function saveMail(m: MailIn, own: string[] = []): Promise<number | null> {
+/** 넣었으면 { 스레드 id, 메일 id }, 이미 있던 메일이면 null. own = 앱이 보내는 주소들(앱 알림은 잡음). */
+export async function saveMail(m: MailIn, own: string[] = []): Promise<{ thread: number; id: number } | null> {
   const messageId = (m.messageId || "").trim().slice(0, 500);
   if (!messageId) return null;
   const [dup] = await sql`SELECT 1 FROM sb.mail_messages WHERE message_id = ${messageId}`;
@@ -73,8 +76,10 @@ export async function saveMail(m: MailIn, own: string[] = []): Promise<number | 
       ${m.subject || ""}, ${m.sentAt}, ${body}, ${(m.attachments || []).map((a) => a.slice(0, 300))}, ${finalNoise})
     ON CONFLICT (message_id) DO NOTHING RETURNING id`;
   if (!inserted.length) return null;
+  const id = Number(inserted[0].id);
+  if (!finalNoise && m.files?.length) await recordFiles(id, threadId, m.files);
   await refreshThread(threadId);
-  return threadId;
+  return { thread: threadId, id };
 }
 
 /**

@@ -47,7 +47,9 @@ export type MailSummary = {
 };
 export type MailMessage = {
   id: number; from: string; name: string; to: string; cc: string; at: string; subject: string; body: string; attachments: string[];
+  files: MailFile[];
 };
+export type MailFile = { id: number; filename: string; size: number; media_type: string; ready: boolean; publish: boolean; error: string };
 
 export type Hist = { labels: string[]; counts: number[]; n: number };
 export type IssueStats = {

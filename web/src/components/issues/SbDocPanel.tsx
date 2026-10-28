@@ -144,7 +144,7 @@ export function SbDocPanel({ doc, meta, onChanged }: { doc: SbDoc; meta: SbList;
       </div>
 
       <div className="flex-1 space-y-4 overflow-auto px-5 py-4">
-        {isMail && <MailThread key={doc.id} docId={doc.id} count={doc.mail_count} />}
+        {isMail && <MailThread key={doc.id} docId={doc.id} count={doc.mail_count} editable={editable} />}
         {["backlog", "queued"].includes(doc.state) && (
           <div className="rounded-xl border border-dashed border-line-strong px-4 py-6 text-center">
             <div className="text-[14px] font-semibold">초안 미생성</div>

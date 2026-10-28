@@ -33,6 +33,20 @@ export async function publishSbDoc(docId: number): Promise<number | null> {
       body_html = EXCLUDED.body_html, body_text = EXCLUDED.body_text, source_url = EXCLUDED.source_url, state = 'published',
       author = EXCLUDED.author, approved_by = EXCLUDED.approved_by, approved_at = EXCLUDED.approved_at, updated_at = now()
     RETURNING id`;
+  // 메일 첨부 중 검토한 사람이 고른 것만 FAQ 첨부로 건다(같은 Dropbox 파일을 가리킨다). 고르지 않게 된 것은 뗀다.
+  if (mail && d.mail_thread_id) {
+    const files = await sql<{ id: number; filename: string; media_type: string; size: number; storage_path: string }[]>`
+      SELECT id, filename, media_type, size, storage_path FROM sb.mail_attachments
+      WHERE thread_id = ${d.mail_thread_id} AND publish AND storage_path IS NOT NULL`;
+    for (const f of files)
+      await sql`
+        INSERT INTO sb.kb_attachments (article_id, filename, media_type, size, is_image, storage_path, mail_attachment_id)
+        VALUES (${row.id}, ${f.filename}, ${f.media_type}, ${f.size}, false, ${f.storage_path}, ${f.id})   -- 본문에 박힌 그림이 아니라 첨부 목록에 보인다
+        ON CONFLICT (mail_attachment_id) DO UPDATE SET article_id = EXCLUDED.article_id, storage_path = EXCLUDED.storage_path`;
+    await sql`
+      DELETE FROM sb.kb_attachments WHERE article_id = ${row.id} AND mail_attachment_id IS NOT NULL
+        AND NOT (mail_attachment_id = ANY(${files.map((f) => f.id)}::int[]))`;
+  }
   forget("faq:");      // FAQ 검색 · 문서 기억을 지워 바로 보이게
   // 같은 원문의 예전 판 — 이 앱에서 확정한 것만(Confluence 이관분은 사람이 판단할 기록이라 그대로 둔다)
   if (mail)

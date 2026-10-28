@@ -169,9 +169,16 @@ export async function threadMessages(threadId: number) {
   const rows = await sql<{ id: number; from_addr: string; from_name: string; to_addrs: string; cc_addrs: string; sent_at: Date | null; subject: string; body_text: string | null; attachments: string[] }[]>`
     SELECT id, from_addr, from_name, to_addrs, cc_addrs, sent_at, subject, body_text, attachments
     FROM sb.mail_messages WHERE thread_id = ${threadId} AND noise = '' ORDER BY sent_at NULLS FIRST, id`;
+  const files = await sql<{ id: number; message_id: number; filename: string; size: number; media_type: string; storage_path: string | null; publish: boolean; error: string | null }[]>`
+    SELECT id, message_id, filename, size, media_type, storage_path, publish, error FROM sb.mail_attachments
+    WHERE thread_id = ${threadId} ORDER BY id`;
   return rows.map((m) => ({
     id: m.id, from: m.from_addr, name: m.from_name, to: m.to_addrs, cc: m.cc_addrs, at: kstIso(m.sent_at),
     subject: m.subject, body: m.body_text || "", attachments: m.attachments ?? [],
+    files: files.filter((f) => f.message_id === m.id).map((f) => ({
+      id: f.id, filename: f.filename, size: Number(f.size), media_type: f.media_type,
+      ready: Boolean(f.storage_path), publish: f.publish, error: f.error || "",
+    })),
   }));
 }
 

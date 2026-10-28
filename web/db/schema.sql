@@ -428,3 +428,24 @@ ALTER TABLE rm_sb_docs ADD COLUMN IF NOT EXISTS source         varchar(10) NOT N
 ALTER TABLE rm_sb_docs ADD COLUMN IF NOT EXISTS mail_thread_id integer REFERENCES mail_threads(id) ON DELETE SET NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_rm_sb_mail_rev ON rm_sb_docs (mail_thread_id, revision) WHERE mail_thread_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_rm_sb_docs_source ON rm_sb_docs (source);
+
+-- 메일 첨부 — 업로드 문서가 된 스레드의 첨부만 Dropbox(<root>/mail/<스레드 id>/<파일>)에 올린다.
+-- 서명 로고 같은 작은 그림은 받지 않는다. FAQ 에 함께 올릴지는 검토하는 사람이 파일마다 고른다(publish, 기본 꺼짐).
+CREATE TABLE IF NOT EXISTS mail_attachments (
+  id            serial PRIMARY KEY,
+  message_id    integer      NOT NULL REFERENCES mail_messages(id) ON DELETE CASCADE,
+  thread_id     integer      NOT NULL REFERENCES mail_threads(id) ON DELETE CASCADE,
+  filename      varchar(500) NOT NULL,
+  media_type    varchar(200) NOT NULL DEFAULT '',
+  size          bigint       NOT NULL DEFAULT 0,
+  part          varchar(40)  NOT NULL DEFAULT '',             -- IMAP 본문 구조의 파트 번호(메일 서버에서 받을 때)
+  storage_path  text,                                          -- Dropbox 경로(올렸으면)
+  link_cache    text,
+  link_expires  timestamptz,
+  publish       boolean      NOT NULL DEFAULT false,
+  error         text,
+  created_at    timestamptz  NOT NULL DEFAULT now(),
+  CONSTRAINT uq_mail_att UNIQUE (message_id, filename, part)
+);
+CREATE INDEX IF NOT EXISTS ix_mail_att_thread ON mail_attachments (thread_id);
+ALTER TABLE kb_attachments ADD COLUMN IF NOT EXISTS mail_attachment_id integer UNIQUE REFERENCES mail_attachments(id) ON DELETE SET NULL;
