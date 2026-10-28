@@ -91,9 +91,26 @@ SB 문서 규칙:
 - ascp     : ASC/ASP(서비스 협력사) 대상 수리·진단 정보
 확신이 서지 않으면 더 보수적인 쪽(internal)을 고른다.`;
 
+/** 메일 스레드에서 만들 때 덧붙이는 규칙 — SYSTEM 의 Redmine 번호 규칙 대신. */
+export const MAIL_RULES = `이번 원문은 Redmine 이슈가 아니라 **받은 메일함의 메일 스레드**다.
+- Redmine 번호 · 링크는 메일에 언급된 경우에만 넣는다. 없으면 출처는 '메일 문의'로만 둔다.
+- 서명, 전화번호, 메일 주소, 계정 ID · 비밀번호, 시리얼 번호 목록, 다운로드 링크(공유 링크는 만료된다)는 옮기지 않는다.
+  고친 OS · 펌웨어는 버전 이름만 쓴다.
+- 고객사 · 파트너사 이름은 쓰지 않는다('고객사', '파트너'로 쓴다).
+- 메일 인사말 · 일정 조율 · 독촉 같은 오간 말은 버리고, 증상 · 원인 · 해결(또는 답)만 정리한다.`;
+
+export const MailDraft = SBDraft.extend({
+  description_html: z.string().describe(
+    "'2) Description' 본문. 평범한 HTML 로 쓴다 — <p>, <ul>, <ol>, <li>, <strong>, <em>, <table>, <tr>, <th>, <td>, <br>, " +
+      "<a href> 만 사용한다. 배경 → 증상 → 원인 → 해결 순서로 쓴다. 메일에 Redmine 번호가 있으면 함께 적는다.",
+  ),
+});
+
 export type SbDocRow = {
   id: number;
-  issue_id: number;
+  issue_id: number | null;
+  source: string;                    // redmine | mail
+  mail_thread_id: number | null;
   revision: number;
   superseded: boolean;
   state: string;
@@ -293,15 +310,14 @@ export async function generate(docId: number): Promise<{ ok: boolean; error?: st
     const [doc] = await sql<SbDocRow[]>`SELECT * FROM sb.rm_sb_docs WHERE id = ${docId}`;
     if (!doc) return { ok: false, error: "문서를 찾을 수 없습니다." };
     if (!["backlog", "queued", "error"].includes(doc.state)) return { ok: false, error: `이미 처리된 문서입니다(state=${doc.state}).` };
-    const issue = await issueWithJournals(doc.issue_id);
-    if (!issue) return { ok: false, error: "이슈를 찾을 수 없습니다." };
-    const prompt = issueText(issue, await Naming.load(), await issueUrlMaker());
+    const src = await sourceText(doc);
+    if (!src) return { ok: false, error: doc.source === "mail" ? "메일 스레드를 찾을 수 없습니다." : "이슈를 찾을 수 없습니다." };
 
     const res = await parseStructured({
-      system: SYSTEM,
-      prompt: `아래 Redmine 이슈를 SB 문서로 정리하세요.\n\n${prompt}`,
-      schema: SBDraft,
-      operation: "SB 문서 초안",
+      system: doc.source === "mail" ? `${SYSTEM}\n\n${MAIL_RULES}` : SYSTEM,
+      prompt: doc.source === "mail" ? `아래 메일 스레드를 SB 문서로 정리하세요.\n\n${src}` : `아래 Redmine 이슈를 SB 문서로 정리하세요.\n\n${src}`,
+      schema: doc.source === "mail" ? MailDraft : SBDraft,
+      operation: doc.source === "mail" ? "SB 문서 초안(메일)" : "SB 문서 초안",
       maxTokens: MAX_TOKENS,
     });
     if (!res.ok) {
@@ -319,7 +335,7 @@ export async function generate(docId: number): Promise<{ ok: boolean; error?: st
         input_tokens = ${res.usage.input_tokens}, output_tokens = ${res.usage.output_tokens},
         error = NULL, state = 'draft', generated_at = now()
       WHERE id = ${docId}`;
-    console.info(`SB 초안 생성: #${doc.issue_id} rev${doc.revision} ${title.slice(0, 60)}`);
+    console.info(`SB 초안 생성: ${doc.source === "mail" ? `메일 ${doc.mail_thread_id}` : `#${doc.issue_id}`} rev${doc.revision} ${title.slice(0, 60)}`);
     return { ok: true, doc_id: docId, title, disclosure };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -328,6 +344,18 @@ export async function generate(docId: number): Promise<{ ok: boolean; error?: st
   } finally {
     await sql`UPDATE sb.rm_sb_docs SET generating_since = NULL WHERE id = ${docId}`.catch(() => {});
   }
+}
+
+/** 문서의 원문 — Redmine 이슈 전문 또는 메일 스레드. 원문이 없으면 ''. */
+export async function sourceText(doc: Pick<SbDocRow, "source" | "issue_id" | "mail_thread_id">): Promise<string> {
+  if (doc.source === "mail") {
+    if (!doc.mail_thread_id) return "";
+    const { threadText } = await import("../mail/store");
+    return threadText(doc.mail_thread_id, MAX_TOTAL);
+  }
+  if (!doc.issue_id) return "";
+  const issue = await issueWithJournals(doc.issue_id);
+  return issue ? issueText(issue, await Naming.load(), await issueUrlMaker()) : "";
 }
 
 async function markError(docId: number, msg: string): Promise<void> {
@@ -380,8 +408,10 @@ export async function notify(docId: number): Promise<{ sent: boolean; error?: st
   const { adminEmails, appUrl, sendAsUser, systemSenderUserId } = await import("../mailer");
   const { render } = await import("../mailTemplates");
 
-  const [doc] = await sql<(SbDocRow & { subject: string | null })[]>`
-    SELECT d.*, i.subject FROM sb.rm_sb_docs d LEFT JOIN sb.rm_issues i ON i.id = d.issue_id WHERE d.id = ${docId}`;
+  const [doc] = await sql<(SbDocRow & { subject: string | null; mail_n: number | null })[]>`
+    SELECT d.*, COALESCE(i.subject, t.subject) AS subject, t.n_messages AS mail_n
+    FROM sb.rm_sb_docs d LEFT JOIN sb.rm_issues i ON i.id = d.issue_id LEFT JOIN sb.mail_threads t ON t.id = d.mail_thread_id
+    WHERE d.id = ${docId}`;
   if (!doc) return { sent: false, error: "문서를 찾을 수 없습니다." };
   if (doc.state !== "draft") return { sent: false, error: `초안 상태가 아닙니다(state=${doc.state}).` };
 
@@ -394,9 +424,12 @@ export async function notify(docId: number): Promise<{ sent: boolean; error?: st
 
   const url = await issueUrlMaker();
   const subject = doc.subject || "";
+  const isMail = doc.source === "mail";
+  const issueId = doc.issue_id ?? 0;
   const rows = [
-    `■ 이슈       : #${doc.issue_id} ${subject.slice(0, 70)}`,
-    `                ${url(doc.issue_id)}`,
+    ...(isMail
+      ? [`■ 메일       : ${subject.slice(0, 70)} (${doc.mail_n ?? 0}통)`]
+      : [`■ 이슈       : #${issueId} ${subject.slice(0, 70)}`, `                ${url(issueId)}`]),
     `■ 문서 제목  : ${doc.title}`,
     `■ 추천 등급  : ${doc.disclosure} (${DISCLOSURES[doc.disclosure] ?? ""}) — ${doc.disclosure_reason || ""}`,
     `■ Applies to : ${(doc.applies_to || "").slice(0, 120)}`,
@@ -405,7 +438,7 @@ export async function notify(docId: number): Promise<{ sent: boolean; error?: st
   const assignee = doc.assignee_name || "";
   const [mailSubject, body] = await render("sb_review", {
     담당자: assignee || "담당자",
-    이슈번호: doc.issue_id,
+    이슈번호: isMail ? "메일" : issueId,
     문서제목: (doc.title || "").slice(0, 50),
     정보표: rows.join("\n") + "\n",
     대신보냄: fallback ? `\n※ 담당자(${assignee}) 메일 주소를 규칙으로 만들지 못해 관리자에게 대신 보냅니다.\n` : "",
@@ -415,17 +448,18 @@ export async function notify(docId: number): Promise<{ sent: boolean; error?: st
   const { htmlToText } = await import("../kb/text");
   const preview = htmlToText(doc.description_html || "");
   const html = sbReviewHtml({
-    assignee, issueId: doc.issue_id, issueSubject: subject, issueUrl: url(doc.issue_id), title: doc.title || "",
+    assignee, issueId, issueSubject: subject, issueUrl: url(issueId), title: doc.title || "",
     disclosure: doc.disclosure, disclosureKo: DISCLOSURES[doc.disclosure] ?? "", reason: doc.disclosure_reason || "",
     appliesTo: doc.applies_to || "", revision: doc.revision, fallback,
     preview: preview.length > 700 ? preview.slice(0, 700) + " …" : preview,
-    docUrl: `${appUrl()}/sb?doc=${doc.id}`,     // SB 문서 화면이 이 문서를 먼저 고른다
+    docUrl: `${appUrl()}/sb?doc=${doc.id}${isMail ? "&src=mail" : ""}`,     // 업로드 화면이 이 문서를 먼저 고른다
+    mail: isMail ? { subject, messages: doc.mail_n ?? 0 } : undefined,
   });
   const [ok, err] = await sendAsUser(uid, to, mailSubject, body, { html });
   if (!ok) return { sent: false, error: err, to };
 
   await sql`UPDATE sb.rm_sb_docs SET state = 'notified', notified_at = now() WHERE id = ${docId}`;
-  console.info(`SB 검토 요청 발송: #${doc.issue_id} → ${to.join(", ")}`);
+  console.info(`SB 검토 요청 발송: ${isMail ? `메일 ${doc.mail_thread_id}` : `#${issueId}`} → ${to.join(", ")}`);
   return { sent: true, to };
 }
 
@@ -533,8 +567,8 @@ export async function assigneesWithoutAccount(): Promise<{ name: string; count: 
 }
 
 /** 상태별 건수 · 쓴 비용. assignee 를 주면 그 담당자 문서만(화면 범위와 맞춘다). */
-export async function summary(assignee = "") {
-  const scope = assignee ? sql`AND assignee_name = ${assignee}` : sql``;
+export async function summary(assignee = "", source = "") {
+  const scope = sql`${assignee ? sql`AND assignee_name = ${assignee}` : sql``} ${source ? sql`AND source = ${source}` : sql``}`;
   const counts = Object.fromEntries(
     (await sql<{ state: string; n: number }[]>`
       SELECT state, count(*)::int8 AS n FROM sb.rm_sb_docs WHERE NOT superseded ${scope} GROUP BY state`).map((r) => [r.state, r.n]),

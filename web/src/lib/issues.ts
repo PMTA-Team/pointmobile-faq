@@ -24,7 +24,8 @@ export type Timeline = {
 };
 
 export type SbDoc = {
-  id: number; issue_id: number; revision: number; state: string; state_label: string; origin: string;
+  id: number; issue_id: number | null; revision: number; state: string; state_label: string; origin: string;
+  source: "redmine" | "mail"; mail_thread_id: number | null; mail_count: number; mail_last: string; mail_new: number;
   superseded: boolean; title: string; disclosure: string; reason: string; applies_to: string;
   description_html: string; partners: string[]; assignee: string; email: string;
   error: string; resolved_at: string; generated_at: string;
@@ -37,6 +38,15 @@ export type SbList = {
   counts: Record<string, number>; spent_usd: number; generating: boolean;
   states: Record<string, string>; active: string[]; hidden: string[];
   disclosures: Record<string, string>; partners: Record<string, string>;
+  source: "redmine" | "mail";
+  mail: MailSummary | null;
+};
+export type MailSummary = {
+  threads: number; open: number; waiting: number; candidate: number; skipped: number; noise: number;
+  quiet_days: number; last_saved_at: string | null;
+};
+export type MailMessage = {
+  id: number; from: string; name: string; to: string; cc: string; at: string; subject: string; body: string; attachments: string[];
 };
 
 export type Hist = { labels: string[]; counts: number[]; n: number };

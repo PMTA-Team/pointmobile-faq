@@ -8,6 +8,7 @@
  */
 import { sql } from "../db";
 import { withLock } from "../locks";
+import { mailTickOnce } from "../mail/tick";
 import { kstSecond } from "../time";
 import * as SB from "./sb";
 import { loadSbSettings } from "./settings";
@@ -131,14 +132,18 @@ export async function tick(budgetMs = 270_000): Promise<Record<string, unknown>>
   const deadline = Date.now() + budgetMs;
   const res = await withLock(SYNC_LOCK, Math.ceil(budgetMs / 1000) + 30, async () => {
     try {
-      const polled = await redminePollOnce(deadline - 60_000); // 수집은 SB 몫을 남기고 멈춘다
+      const polled = await redminePollOnce(deadline - 120_000); // 수집은 메일 · SB 몫을 남기고 멈춘다
+      // 받은 메일함은 Redmine 과 따로 돈다(Redmine 이 멈춰도 메일은 모은다).
+      const mail = await mailTickOnce(deadline - 60_000).catch((e) => ({ error: String(e) }));
+      await saveStatus("mail", !("error" in mail) && !mail.ingest_error, startedAt,
+        "error" in mail ? String(mail.error) : mail.ingest_error ? String(mail.ingest_error) : undefined);
       if (polled.error) {
         await saveStatus("redmine_sb", false, startedAt, polled.error);
-        return { poll: polled };
+        return { poll: polled, mail };
       }
       const sb = await sbTickOnce(deadline);
       await saveStatus("redmine_sb", true, startedAt);
-      return { poll: polled, sb };
+      return { poll: polled, mail, sb };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[sb] tick 오류", e);

@@ -376,3 +376,55 @@ CREATE TABLE IF NOT EXISTS dropbox_credentials (
 -- 첨부의 Dropbox 임시 링크(4시간) — 볼 때마다 Dropbox 에 묻지 않게 잠깐 둔다.
 ALTER TABLE kb_attachments ADD COLUMN IF NOT EXISTS link_cache   text;
 ALTER TABLE kb_attachments ADD COLUMN IF NOT EXISTS link_expires timestamptz;
+
+-- ── 메일함 → 업로드 ─────────────────────────────────────────────────────────────
+-- 받은 메일함(시스템 메일 계정)을 IMAP 으로 읽기만 한다(EXAMINE · BODY.PEEK — 읽음 표시도 바꾸지 않는다).
+-- 메일은 스레드로 묶고, 규칙으로 잡음(Redmine 알림 · 부재중 · 자동 메일 · 공지 …)을 거른다.
+-- 남은 스레드는 조용해진 뒤(새 메일이 며칠 없으면) Claude 가 FAQ 감인지 가리고, 감이면 rm_sb_docs 에 초안을 만든다.
+CREATE TABLE IF NOT EXISTS mail_threads (
+  id              serial PRIMARY KEY,
+  subject         text         NOT NULL DEFAULT '',
+  subject_key     text         NOT NULL DEFAULT '',            -- RE:/FW: 를 떼고 소문자로 — 참조 헤더가 없을 때 묶는 기준
+  first_at        timestamptz,
+  last_at         timestamptz,
+  n_messages      integer      NOT NULL DEFAULT 0,
+  noise           varchar(30)  NOT NULL DEFAULT '',            -- 규칙으로 거른 이유(빈 값 = 사람이 볼 메일)
+  state           varchar(20)  NOT NULL DEFAULT 'open',        -- open | noise | skipped | candidate
+  category        varchar(30)  NOT NULL DEFAULT '',            -- 가린 결과: tech_support | service_request | dev_request | sales | internal | other
+  triage_reason   text         NOT NULL DEFAULT '',
+  triaged_at      timestamptz,
+  triaged_n       integer      NOT NULL DEFAULT 0,             -- 가릴 때의 메일 수(그 뒤 새 메일이 오면 다시 가린다)
+  handler         varchar(120) NOT NULL DEFAULT '',            -- 답장한 TA 담당자(계정 이름)
+  created_at      timestamptz  NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_mail_threads_key   ON mail_threads (subject_key);
+CREATE INDEX IF NOT EXISTS ix_mail_threads_state ON mail_threads (state);
+CREATE INDEX IF NOT EXISTS ix_mail_threads_last  ON mail_threads (last_at DESC);
+
+CREATE TABLE IF NOT EXISTS mail_messages (
+  id           serial PRIMARY KEY,
+  thread_id    integer      NOT NULL REFERENCES mail_threads(id) ON DELETE CASCADE,
+  message_id   varchar(500) NOT NULL UNIQUE,
+  in_reply_to  varchar(500) NOT NULL DEFAULT '',
+  refs         text         NOT NULL DEFAULT '',
+  imap_uid     bigint,
+  from_addr    varchar(300) NOT NULL DEFAULT '',
+  from_name    varchar(300) NOT NULL DEFAULT '',
+  to_addrs     text         NOT NULL DEFAULT '',
+  cc_addrs     text         NOT NULL DEFAULT '',
+  subject      text         NOT NULL DEFAULT '',
+  sent_at      timestamptz,
+  body_text    text,                                            -- 인용문 · 서명을 걷어낸 본문. 잡음 메일은 저장하지 않는다(NULL)
+  attachments  text[]       NOT NULL DEFAULT '{}',              -- 파일 이름만
+  noise        varchar(30)  NOT NULL DEFAULT '',
+  created_at   timestamptz  NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_mail_messages_thread ON mail_messages (thread_id, sent_at);
+CREATE INDEX IF NOT EXISTS ix_mail_messages_uid    ON mail_messages (imap_uid);
+
+-- 업로드 문서는 Redmine 이슈 또는 메일 스레드에서 나온다.
+ALTER TABLE rm_sb_docs ALTER COLUMN issue_id DROP NOT NULL;
+ALTER TABLE rm_sb_docs ADD COLUMN IF NOT EXISTS source         varchar(10) NOT NULL DEFAULT 'redmine';   -- redmine | mail
+ALTER TABLE rm_sb_docs ADD COLUMN IF NOT EXISTS mail_thread_id integer REFERENCES mail_threads(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rm_sb_mail_rev ON rm_sb_docs (mail_thread_id, revision) WHERE mail_thread_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_rm_sb_docs_source ON rm_sb_docs (source);

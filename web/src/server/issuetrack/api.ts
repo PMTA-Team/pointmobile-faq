@@ -42,7 +42,22 @@ export const ACTION_WHAT: Record<string, string> = {
   empty: "코멘트도 변경 내역도 없는 이벤트",
 };
 
-type DocJoin = SB.SbDocRow & { subject: string | null; issue_status: string | null };
+/** 문서 + 원문 요약(Redmine 이슈 제목 · 상태 또는 메일 스레드 제목 · 통수 · 담당). */
+export type DocJoin = SB.SbDocRow & {
+  subject: string | null; issue_status: string | null;
+  mail_n: number | null; mail_last: Date | null; mail_handler: string | null; mail_new: number | null;
+};
+
+/** 목록 · 문서 조회 공통 SELECT — 메일 문서는 이슈가 없어 LEFT JOIN. mail_new = 초안 이후 새로 온 메일 수. */
+export const docSelect = () => sql`
+  SELECT d.*, COALESCE(i.subject, t.subject) AS subject, i.status AS issue_status,
+    t.n_messages AS mail_n, t.last_at AS mail_last, t.handler AS mail_handler,
+    CASE WHEN d.generated_at IS NULL THEN 0 ELSE (
+      SELECT count(*)::int FROM sb.mail_messages m WHERE m.thread_id = d.mail_thread_id AND m.noise = '' AND m.created_at > d.generated_at
+    ) END AS mail_new
+  FROM sb.rm_sb_docs d
+  LEFT JOIN sb.rm_issues i ON i.id = d.issue_id
+  LEFT JOIN sb.mail_threads t ON t.id = d.mail_thread_id`;
 
 export function docDict(d: DocJoin, url: (id: number) => string) {
   let partners: string[] = [];
@@ -54,6 +69,11 @@ export function docDict(d: DocJoin, url: (id: number) => string) {
   return {
     id: d.id,
     issue_id: d.issue_id,
+    source: d.source || "redmine",
+    mail_thread_id: d.mail_thread_id,
+    mail_count: d.mail_n ?? 0,
+    mail_last: kstIso(d.mail_last),
+    mail_new: d.mail_new ?? 0,
     revision: d.revision,
     state: d.state,
     state_label: SB_STATES[d.state] ?? d.state,
@@ -77,7 +97,7 @@ export function docDict(d: DocJoin, url: (id: number) => string) {
     out_tok: d.output_tokens || 0,
     subject: d.subject || "",
     issue_status: d.issue_status || "",
-    issue_url: url(d.issue_id),
+    issue_url: d.issue_id ? url(d.issue_id) : "",
     generating: SB.isGenerating(d),
     // 예전에는 생성 스레드의 결과를 메모리에 두었다. 지금은 실패가 문서 상태(error)로 남으므로 거기서 읽는다.
     gen_result: d.state === "error" ? { ok: false, error: d.error || "" } : null,
@@ -88,9 +108,7 @@ export type DocDict = ReturnType<typeof docDict>;
 
 /** 본인 담당(관리자는 전체) 문서만 다룬다. */
 export async function loadDocFor(u: SessionUser, docId: number): Promise<DocDict> {
-  const [row] = await sql<DocJoin[]>`
-    SELECT d.*, i.subject, i.status AS issue_status
-    FROM sb.rm_sb_docs d JOIN sb.rm_issues i ON i.id = d.issue_id WHERE d.id = ${docId}`;
+  const [row] = await sql<DocJoin[]>`${docSelect()} WHERE d.id = ${docId}`;
   if (!row) bad("문서가 없습니다", 404);
   const d = docDict(row, await issueUrlMaker());
   if (!isAdmin(u) && d.assignee !== (u.username || "")) bad("본인 담당 문서만 다룰 수 있습니다", 403);
@@ -146,4 +164,15 @@ export function isoKst(s: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "" : kstIso(d);
 }
 
-export const r2 = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.round(v * 100) / 100);
+/** 메일 문서의 원문 스레드 — 화면에서 펼쳐 본다(사람이 주고받은 메일만). */
+export async function threadMessages(threadId: number) {
+  const rows = await sql<{ id: number; from_addr: string; from_name: string; to_addrs: string; cc_addrs: string; sent_at: Date | null; subject: string; body_text: string | null; attachments: string[] }[]>`
+    SELECT id, from_addr, from_name, to_addrs, cc_addrs, sent_at, subject, body_text, attachments
+    FROM sb.mail_messages WHERE thread_id = ${threadId} AND noise = '' ORDER BY sent_at NULLS FIRST, id`;
+  return rows.map((m) => ({
+    id: m.id, from: m.from_addr, name: m.from_name, to: m.to_addrs, cc: m.cc_addrs, at: kstIso(m.sent_at),
+    subject: m.subject, body: m.body_text || "", attachments: m.attachments ?? [],
+  }));
+}
+
+export const r2 =(v: number | null | undefined) => (v === null || v === undefined ? null : Math.round(v * 100) / 100);

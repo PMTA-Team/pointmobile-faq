@@ -53,6 +53,22 @@ async function getSendIdentity(userId: number): Promise<SendIdentity | null> {
   return { email: c.email_address.trim(), password: pw, host: smtpHostFor(c.pop_server), port: smtpPort() };
 }
 
+/** 받은 메일함을 읽을 계정 — 시스템 메일 계정의 주소 · 비밀번호 · 메일 서버(pop_server 칸). 없으면 null. */
+export async function inboxIdentity(): Promise<{ email: string; password: string; host: string } | null> {
+  const uid = await systemSenderUserId();
+  if (uid === null) return null;
+  const [c] = await sql<{ email_address: string; encrypted_password: string; pop_server: string }[]>`
+    SELECT email_address, encrypted_password, pop_server FROM sb.mail_credentials WHERE user_id = ${uid}`;
+  if (!c?.email_address || !c.encrypted_password) return null;
+  let pw = "";
+  try {
+    pw = decryptSecret(c.encrypted_password);
+  } catch {
+    return null;
+  }
+  return pw ? { email: c.email_address.trim(), password: pw, host: env("MAIL_IMAP_HOST") || c.pop_server || "mail.pointmobile.com" } : null;
+}
+
 /** 시스템 명의 발신 설정 — [보이는 주소, 표시 이름, 답장 받을 주소]. */
 export function systemFrom(): [string, string, string] {
   return [env("TW_MAIL_FROM"), env("TW_MAIL_FROM_NAME") || "TA FAQ", env("TW_MAIL_REPLY_TO")];

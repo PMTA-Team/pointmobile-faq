@@ -27,7 +27,7 @@ export const POST = route(async (req, ctx) => {
   const history = Array.isArray(b.history)
     ? b.history.slice(-6).map((h) => ({ instruction: String(h.instruction ?? "").slice(0, 1000), changes: String(h.changes ?? "").slice(0, 1000) }))
     : [];
-  const r = await assistEdit({ issueId: Number(doc.issue_id), form, instruction, history });
+  const r = await assistEdit({ doc: { source: doc.source, issue_id: doc.issue_id, mail_thread_id: doc.mail_thread_id }, form, instruction, history });
   if (!r.ok) bad(`Claude 수정 실패: ${r.error}`, 502);
   return r;
 });

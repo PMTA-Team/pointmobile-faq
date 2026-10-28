@@ -6,6 +6,7 @@ import { DISCLOSURE_TONE, kst, SB_STATE_TONE, type SbDoc, type SbList } from "@/
 import { cx } from "@/components/ui";
 import { Btn, Modal, useToast } from "./kit";
 import { RichEditor } from "./RichEditor";
+import { MailThread } from "./MailThread";
 import { SbAssist } from "./SbAssist";
 
 type Form = { title: string; disclosure: string; applies_to: string; description_html: string; partners: string[] };
@@ -111,8 +112,9 @@ export function SbDocPanel({ doc, meta, onChanged }: { doc: SbDoc; meta: SbList;
     setForm((f) => ({ ...f, partners: f.partners.includes(key) ? f.partners.filter((x) => x !== key) : [...f.partners, key] }));
   }
 
+  const isMail = doc.source === "mail";
   const times = [
-    ["해결", doc.resolved_at], ["생성", doc.generated_at], ["검토 요청", doc.notified_at], ["확정", doc.state === "approved" ? doc.decided_at : ""],
+    [isMail ? "마지막 메일" : "해결", doc.resolved_at], ["생성", doc.generated_at], ["검토 요청", doc.notified_at], ["확정", doc.state === "approved" ? doc.decided_at : ""],
   ].filter(([, v]) => v) as [string, string][];
 
   return (
@@ -123,13 +125,18 @@ export function SbDocPanel({ doc, meta, onChanged }: { doc: SbDoc; meta: SbList;
           <SbStateChip d={doc} />
           {!["backlog", "queued"].includes(doc.state) && <DisclosureTag v={doc.disclosure} />}
           {doc.revision > 1 && <span className="rounded-md border border-warn/40 px-1.5 py-[1px] text-[11px] font-semibold text-warn" title="이슈가 다시 열렸다가 해결되어 새로 작성된 문서">{doc.revision}판</span>}
-          <a href={doc.issue_url} target="_blank" rel="noreferrer" className="ml-1 text-[12.5px] font-semibold text-brand-ink hover:underline">#{doc.issue_id} ↗</a>
+          {isMail
+            ? <span className="ml-1 text-[12.5px] font-semibold text-ink-2">메일 {doc.mail_count}통</span>
+            : <a href={doc.issue_url} target="_blank" rel="noreferrer" className="ml-1 text-[12.5px] font-semibold text-brand-ink hover:underline">#{doc.issue_id} ↗</a>}
           <span className="ml-auto text-[12px] text-ink-3">{doc.assignee || "담당자 없음"}</span>
         </div>
         <div className="mt-1.5 text-[16px] font-bold leading-snug">{doc.title || doc.subject}</div>
         <div className="mt-1 text-[12.5px] text-ink-3">
-          [{doc.issue_status}] {doc.subject}
+          {isMail ? `✉ ${doc.subject}` : `[${doc.issue_status}] ${doc.subject}`}
         </div>
+        {isMail && doc.mail_new > 0 && (
+          <div className="mt-2 rounded-lg bg-warn-soft px-3 py-1.5 text-[12.5px] text-warn">초안을 만든 뒤 새 메일 {doc.mail_new}통이 더 왔습니다 — 원문을 확인해 반영하세요</div>
+        )}
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-ink-3">
           {times.map(([k, v]) => <span key={k}>{k} {kst(v)}</span>)}
           {doc.in_tok > 0 && <span>토큰 {doc.in_tok.toLocaleString()}/{doc.out_tok.toLocaleString()}</span>}
@@ -137,6 +144,7 @@ export function SbDocPanel({ doc, meta, onChanged }: { doc: SbDoc; meta: SbList;
       </div>
 
       <div className="flex-1 space-y-4 overflow-auto px-5 py-4">
+        {isMail && <MailThread key={doc.id} docId={doc.id} count={doc.mail_count} />}
         {["backlog", "queued"].includes(doc.state) && (
           <div className="rounded-xl border border-dashed border-line-strong px-4 py-6 text-center">
             <div className="text-[14px] font-semibold">초안 미생성</div>

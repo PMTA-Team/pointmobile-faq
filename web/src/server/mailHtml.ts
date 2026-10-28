@@ -180,15 +180,20 @@ export function sbReviewHtml(o: {
   assignee: string; issueId: number; issueSubject: string; issueUrl: string; title: string;
   disclosure: string; disclosureKo: string; reason: string; appliesTo: string; revision: number;
   preview: string; fallback: boolean; docUrl: string;
+  /** 메일 스레드에서 만든 문서면 — 이슈 대신 메일 제목 · 통수를 보인다. */
+  mail?: { subject: string; messages: number };
 }): string {
+  const grade = ["추천 공개 등급", `${e(o.disclosure)} <span style="font-size:12px;color:${INK3}">${e(o.disclosureKo)}</span>`] as [string, string];
   const inner = p(`${e(o.assignee || "담당자")} 님,`)
-    + p(`담당하신 Redmine 이슈 <b>#${o.issueId}</b> 가 Resolved 되어, SB 문서 초안을 자동으로 작성했습니다.`, true) + gap(18)
+    + p(o.mail
+      ? `답장하신 메일 <b>${e(o.mail.subject)}</b> 의 처리가 끝난 것으로 보여, SB 문서 초안을 자동으로 작성했습니다.`
+      : `담당하신 Redmine 이슈 <b>#${o.issueId}</b> 가 Resolved 되어, SB 문서 초안을 자동으로 작성했습니다.`, true) + gap(18)
     + banner("info", "SB 문서 검토 요청", o.title)
-    + strip([["Redmine", `#${o.issueId}`], ["추천 공개 등급", `${e(o.disclosure)} <span style="font-size:12px;color:${INK3}">${e(o.disclosureKo)}</span>`],
+    + strip([o.mail ? ["메일", `${o.mail.messages}통`] : ["Redmine", `#${o.issueId}`], grade,
              ["판", o.revision > 1 ? `${o.revision}판` : "새 문서"]])
     + (o.fallback ? box("관리자에게 대신 보냄", `담당자(${o.assignee || "-"})의 메일 주소를 찾지 못해 관리자에게 보냅니다. 담당자에게 전달해 주세요.`, "warn") : "")
     + rows([
-      ["이슈", `${link(o.issueUrl, `#${o.issueId}`)} ${e(o.issueSubject)}`],
+      o.mail ? ["메일", e(o.mail.subject)] : ["이슈", `${link(o.issueUrl, `#${o.issueId}`)} ${e(o.issueSubject)}`],
       ["문서 제목", `<b>${e(o.title)}</b>`],
       ["Applies to", e(o.appliesTo)],
       ["등급 판단", e(o.reason)],

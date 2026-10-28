@@ -4,10 +4,7 @@
  */
 import { z } from "zod";
 import { MODEL, parseStructured } from "../claude";
-import { issueUrlMaker } from "./client";
-import { Naming } from "./events";
-import { DISCLOSURES, issueText, sanitizeHtml, SYSTEM } from "./sb";
-import { issueWithJournals } from "./store";
+import { DISCLOSURES, MAIL_RULES, sanitizeHtml, sourceText, SYSTEM } from "./sb";
 
 const EDIT_MODEL = process.env.SB_EDIT_MODEL || MODEL;
 
@@ -35,16 +32,19 @@ const EDIT_RULES = `지금 하는 일: 이미 만든 SB 문서 초안을 담당�
 export type AssistTurn = { instruction: string; changes: string };
 export type AssistForm = { title: string; disclosure: string; applies_to: string; description_html: string };
 
-export async function assistEdit(opts: { issueId: number; form: AssistForm; instruction: string; history: AssistTurn[] }) {
-  const issue = await issueWithJournals(opts.issueId);
-  if (!issue) return { ok: false as const, error: "이슈를 찾을 수 없습니다." };
-  const source = issueText(issue, await Naming.load(), await issueUrlMaker());
+export async function assistEdit(opts: {
+  doc: { source: string; issue_id: number | null; mail_thread_id: number | null };
+  form: AssistForm; instruction: string; history: AssistTurn[];
+}) {
+  const isMail = opts.doc.source === "mail";
+  const source = await sourceText(opts.doc);
+  if (!source) return { ok: false as const, error: isMail ? "메일 스레드를 찾을 수 없습니다." : "이슈를 찾을 수 없습니다." };
   const f = opts.form;
   const history = opts.history.slice(-6)
     .map((h, i) => `${i + 1}. 지시: ${h.instruction}\n   결과: ${h.changes}`).join("\n");
 
   const prompt = [
-    "[Redmine 이슈 원문]", source, "",
+    isMail ? "[메일 스레드 원문]" : "[Redmine 이슈 원문]", source, "",
     "[현재 초안] — 담당자가 화면에서 고치던 내용(저장 전일 수 있다)",
     `제목: ${f.title}`,
     `공개 등급: ${f.disclosure} (${DISCLOSURES[f.disclosure] ?? ""})`,
@@ -55,7 +55,7 @@ export async function assistEdit(opts: { issueId: number; form: AssistForm; inst
   ].join("\n");
 
   const res = await parseStructured({
-    system: `${SYSTEM}\n\n${EDIT_RULES}`,
+    system: isMail ? `${SYSTEM}\n\n${MAIL_RULES}\n\n${EDIT_RULES}` : `${SYSTEM}\n\n${EDIT_RULES}`,
     prompt,
     schema: SBEdit,
     operation: "SB 문서 수정",
