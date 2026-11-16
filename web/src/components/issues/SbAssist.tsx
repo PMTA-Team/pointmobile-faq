@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { cx } from "@/components/ui";
 import { Btn } from "./kit";
@@ -12,7 +12,7 @@ type Result = {
 type Turn = { instruction: string; busy: boolean; error: string; result: Result | null; state: "pending" | "applied" | "discarded" };
 
 const QUICK = [
-  "더 간결하게 줄여줘",
+  "원문에 나온 히든 메뉴 진입 방법 · 메뉴 경로 · 코드 · 명령 · 설정 값 · 버전을 빠짐없이 그대로 넣어줘",
   "해결 단계를 번호 목록으로 정리해줘",
   "고객에게 보여줄 수 있게 표현을 다듬어줘",
   "영어로 바꿔줘",
@@ -25,8 +25,12 @@ const FIELD_NAME: Record<keyof Draft, string> = { title: "제목", disclosure: "
  * Claude 와 초안 고치기 — 지시하면 Claude 가 이슈 원문과 지금 초안(저장 전 내용 포함)을 보고 수정안을 낸다.
  * 수정안은 바로 덮어쓰지 않는다. [적용]을 눌러야 편집 칸에 들어가고, 저장 · 확정은 평소대로.
  */
-export function SbAssist({ docId, form, onApply }: { docId: number; form: Draft; onApply: (d: Draft) => void }) {
+export function SbAssist({ docId, form, onApply, prefill }: { docId: number; form: Draft; onApply: (d: Draft) => void; prefill?: string }) {
   const [text, setText] = useState("");
+  // 원문 대조 상자에서 '요청 넣기'를 누르면 지시 칸을 채운다
+  useEffect(() => {
+    if (prefill) setText(prefill);
+  }, [prefill]);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [open, setOpen] = useState<number | null>(null);
   const busy = turns.some((t) => t.busy);

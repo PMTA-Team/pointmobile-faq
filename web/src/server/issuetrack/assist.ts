@@ -14,7 +14,7 @@ const SBEdit = z.object({
   disclosure_reason: z.string().describe("그 등급인 이유 한 문장"),
   applies_to: z.string().describe("'1) Applies to' 값. 지시가 없으면 그대로"),
   description_html: z.string().describe(
-    "고친 '2) Description' 본문 전체 HTML — <p>, <ul>, <ol>, <li>, <strong>, <em>, <table>, <tr>, <th>, <td>, <br>, <a href> 만. "
+    "고친 '2) Description' 본문 전체 HTML — <p>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <pre>, <table>, <tr>, <th>, <td>, <br>, <a href> 만. "
     + "지시와 관계없는 부분은 글자 하나 바꾸지 않는다"),
   changes: z.string().describe("무엇을 왜 바꿨는지 한국어 1~3문장. 바꾼 것이 없으면 '바꾼 것 없음'"),
   reply: z.string().describe("지시가 질문이면 그 답(한국어). 질문이 아니면 빈 문자열"),

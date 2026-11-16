@@ -7,6 +7,7 @@ import { cx } from "@/components/ui";
 import { Btn, Modal, useToast } from "./kit";
 import { RichEditor } from "./RichEditor";
 import { MailThread } from "./MailThread";
+import { MissingSpecifics } from "./MissingSpecifics";
 import { SbAssist } from "./SbAssist";
 
 type Form = { title: string; disclosure: string; applies_to: string; description_html: string; partners: string[] };
@@ -44,6 +45,7 @@ export function SbDocPanel({ doc, meta, onChanged }: { doc: SbDoc; meta: SbList;
   const [askApprove, setAskApprove] = useState(false);
   const [askDiscard, setAskDiscard] = useState(false);
   const [discardReason, setDiscardReason] = useState("");
+  const [assistPrefill, setAssistPrefill] = useState("");
 
   useEffect(() => {
     setForm(formOf(doc));
@@ -124,7 +126,7 @@ export function SbDocPanel({ doc, meta, onChanged }: { doc: SbDoc; meta: SbList;
         <div className="flex flex-wrap items-center gap-1.5">
           <SbStateChip d={doc} />
           {!["backlog", "queued"].includes(doc.state) && <DisclosureTag v={doc.disclosure} />}
-          {doc.revision > 1 && <span className="rounded-md border border-warn/40 px-1.5 py-[1px] text-[11px] font-semibold text-warn" title="이슈가 다시 열렸다가 해결되어 새로 작성된 문서">{doc.revision}판</span>}
+          {doc.revision > 1 && <span className="rounded-md border border-warn/40 px-1.5 py-[1px] text-[11px] font-semibold text-warn" title={isMail ? "다시 정리한 문서(예전 판은 이력으로 남아 있다)" : "이슈가 다시 열렸다가 해결되어 새로 작성된 문서"}>{doc.revision}판</span>}
           {isMail
             ? <span className="ml-1 text-[12.5px] font-semibold text-ink-2">메일 {doc.mail_count}통</span>
             : <a href={doc.issue_url} target="_blank" rel="noreferrer" className="ml-1 text-[12.5px] font-semibold text-brand-ink hover:underline">#{doc.issue_id} ↗</a>}
@@ -229,7 +231,9 @@ export function SbDocPanel({ doc, meta, onChanged }: { doc: SbDoc; meta: SbList;
               <RichEditor value={form.description_html} onChange={(h) => setForm((f) => ({ ...f, description_html: h }))}
                           placeholder="배경 → 증상 → 원인 → 해결 순서로 작성" />
             </div>
-            <SbAssist key={doc.id} docId={doc.id} form={form}
+            <MissingSpecifics key={`m${doc.id}`} docId={doc.id} html={`${form.title}\n${form.applies_to}\n${form.description_html}`}
+                              onAsk={setAssistPrefill} />
+            <SbAssist key={doc.id} docId={doc.id} form={form} prefill={assistPrefill}
                       onApply={(d) => setForm((f) => ({ ...f, ...d }))} />
 
           </>

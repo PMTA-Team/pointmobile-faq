@@ -23,6 +23,7 @@ import { publishSbDoc, unpublishSbDoc } from "../kb/publish";
 import { isLocked, withLock } from "../locks";
 import { price } from "../usage";
 import { issueUrlMaker } from "./client";
+import { missingIn, specificsOf } from "./specifics";
 import { eventOf, Naming, timings } from "./events";
 import { assigneeSet, cutoffDate, loadSbSettings } from "./settings";
 import { byTime, issueWithJournals, journalsFor, pyDt, withJournals, type IssueRow, type IssueWithJournals } from "./store";
@@ -63,11 +64,27 @@ export const SBDraft = z.object({
   applies_to: z.string().describe("'1) Applies to' 값. 적용 모델/솔루션. 예: 'PM95 / Android 15, EmKit'"),
   description_html: z.string().describe(
     "'2) Description' 본문. 평범한 HTML 로 쓴다 — " +
-      "<p>, <ul>, <ol>, <li>, <strong>, <em>, <table>, <tr>, <th>, <td>, <br>, " +
-      "<a href> 만 사용한다. 배경 → 증상 → 원인 → 해결 순서로 쓴다. " +
+      "<p>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <pre>, <table>, <tr>, <th>, <td>, <br>, " +
+      "<a href> 만 사용한다. 배경 → 증상 → 원인 → 해결 순서로 쓴다. 해결 절차는 <ol> 단계로, " +
+      "메뉴 경로 · 코드 · 명령 · 설정 값은 원문 그대로 <code>(여러 줄이면 <pre>)로 쓴다. " +
       "Redmine 이슈 번호와 링크를 반드시 포함한다.",
   ),
 });
+
+/**
+ * 반드시 그대로 옮길 것 — 요약하다 보면 이것들이 빠진다. 문서를 읽은 사람이 그대로 따라 할 수 있어야 한다.
+ * (Redmine · 메일 초안, Claude 와 고치기 모두 이 규칙을 쓴다.)
+ */
+export const KEEP_RULES = `반드시 원문 그대로 옮길 것 — 요약하거나 "설정에서 바꾼다"처럼 뭉개지 않는다. 읽은 사람이 문서만 보고 그대로 따라 할 수 있어야 한다:
+- 히든 메뉴 · 숨은 설정 · 엔지니어/개발자 모드에 들어가는 방법(어디를 몇 번 누르는지, 어떤 키 조합인지)
+- 다이얼 코드(예: *#*#1277#*#*), 메뉴 경로 전체(예: 설정 > Network & internet > WLAN detail settings > …), 화면에 보이는 항목 이름 그대로
+- 설정 이름과 값(켜기/끄기, 숫자, 선택지), 권장 값과 기본 값
+- adb · 셸 명령, 인텐트 · 액션 · Extra 이름, API · 클래스 · 패키지 이름, 코드 조각, QR · 프로파일 항목
+- OS · 펌웨어 · 앱 버전과 빌드 번호(어느 버전에서 생겼고 어느 버전에서 고쳐졌는지), 파일 이름
+- 원인 분석의 근거가 된 수치 · 로그 키워드 · 오류 메시지 원문, 스펙 수치
+- 확인 · 해결 절차는 순서대로 번호 단계(<ol>)로. 원문에 단계가 여러 개면 하나도 빼지 않는다.
+메뉴 경로 · 코드 · 명령 · 값은 <code>(여러 줄이면 <pre>)로 감싼다. 원문의 표현이 영어면 메뉴 이름은 영어 그대로 둔다.
+빼는 것은 사람 · 회사를 특정하는 정보뿐이다(아래 규칙). 히든 메뉴 · 코드는 사내 지식이므로 빼지 말고, 외부에 알리면 안 될 내용이면 공개 등급을 internal 로 한다.`;
 
 export const SYSTEM = `당신은 Point Mobile 기술지원팀의 Solution Buffer(SB) 문서 작성자입니다.
 Redmine 이슈가 Resolved 되면 그 내용을 사내 FAQ(TA FAQ)에 올릴 문서로 정리합니다.
@@ -83,6 +100,8 @@ SB 문서 규칙:
 - 이슈 이력에 나오는 사내 구성원 실명·직급 호칭, 고객사 담당자 이름은 문서에 옮기지 않는다.
 - 추측하지 않는다. 이슈에 근거가 없는 원인·수치·버전은 쓰지 않는다.
 
+${KEEP_RULES}
+
 공개 등급 판단:
 - internal : 내부에서만 봐야 할 것. 미출시 정보, 원인이 자사 결함으로 드러난 것,
              고객사명·계약 정보가 얽힌 것, 아직 확정되지 않은 내용
@@ -94,15 +113,18 @@ SB 문서 규칙:
 /** 메일 스레드에서 만들 때 덧붙이는 규칙 — SYSTEM 의 Redmine 번호 규칙 대신. */
 export const MAIL_RULES = `이번 원문은 Redmine 이슈가 아니라 **받은 메일함의 메일 스레드**다.
 - Redmine 번호 · 링크는 메일에 언급된 경우에만 넣는다. 없으면 출처는 '메일 문의'로만 둔다.
-- 서명, 전화번호, 메일 주소, 계정 ID · 비밀번호, 시리얼 번호 목록, 다운로드 링크(공유 링크는 만료된다)는 옮기지 않는다.
-  고친 OS · 펌웨어는 버전 이름만 쓴다.
+- 옮기지 않는 것은 사람 · 회사를 특정하는 정보뿐이다: 서명, 사람 이름 · 직급, 전화번호, 메일 주소,
+  특정 고객 계정의 ID · 비밀번호, 시리얼 번호 목록, 만료되는 공유 · 다운로드 링크(대신 파일 이름과 OS · 펌웨어 버전을 쓴다).
 - 고객사 · 파트너사 이름은 쓰지 않는다('고객사', '파트너'로 쓴다).
-- 메일 인사말 · 일정 조율 · 독촉 같은 오간 말은 버리고, 증상 · 원인 · 해결(또는 답)만 정리한다.`;
+- 인사말 · 일정 조율 · 독촉 같은 오간 말만 버린다. 우리가 보낸 답 메일에 적힌 방법 · 경로 · 코드 · 명령 · 값 · 버전은
+  위의 '반드시 그대로 옮길 것' 규칙대로 하나도 빼지 않는다. 답이 여러 메일에 나뉘어 있으면 모두 모은다.`;
 
 export const MailDraft = SBDraft.extend({
   description_html: z.string().describe(
-    "'2) Description' 본문. 평범한 HTML 로 쓴다 — <p>, <ul>, <ol>, <li>, <strong>, <em>, <table>, <tr>, <th>, <td>, <br>, " +
-      "<a href> 만 사용한다. 배경 → 증상 → 원인 → 해결 순서로 쓴다. 메일에 Redmine 번호가 있으면 함께 적는다.",
+    "'2) Description' 본문. 평범한 HTML 로 쓴다 — <p>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <pre>, <table>, <tr>, <th>, <td>, <br>, " +
+      "<a href> 만 사용한다. 배경 → 증상 → 원인 → 해결 순서로 쓴다(질문 · 답 형태의 스레드면 질문 → 답). " +
+      "해결 절차는 <ol> 단계로, 메뉴 경로 · 코드 · 명령 · 설정 값은 원문 그대로 <code>(여러 줄이면 <pre>)로 쓴다. " +
+      "메일에 Redmine 번호가 있으면 함께 적는다.",
   ),
 });
 
@@ -313,10 +335,11 @@ export async function generate(docId: number): Promise<{ ok: boolean; error?: st
     const src = await sourceText(doc);
     if (!src) return { ok: false, error: doc.source === "mail" ? "메일 스레드를 찾을 수 없습니다." : "이슈를 찾을 수 없습니다." };
 
+    const system = doc.source === "mail" ? `${SYSTEM}\n\n${MAIL_RULES}` : SYSTEM;
+    const schema = doc.source === "mail" ? MailDraft : SBDraft;
+    const ask = doc.source === "mail" ? `아래 메일 스레드를 SB 문서로 정리하세요.\n\n${src}` : `아래 Redmine 이슈를 SB 문서로 정리하세요.\n\n${src}`;
     const res = await parseStructured({
-      system: doc.source === "mail" ? `${SYSTEM}\n\n${MAIL_RULES}` : SYSTEM,
-      prompt: doc.source === "mail" ? `아래 메일 스레드를 SB 문서로 정리하세요.\n\n${src}` : `아래 Redmine 이슈를 SB 문서로 정리하세요.\n\n${src}`,
-      schema: doc.source === "mail" ? MailDraft : SBDraft,
+      system, prompt: ask, schema,
       operation: doc.source === "mail" ? "SB 문서 초안(메일)" : "SB 문서 초안",
       maxTokens: MAX_TOKENS,
     });
@@ -324,15 +347,36 @@ export async function generate(docId: number): Promise<{ ok: boolean; error?: st
       await markError(docId, res.refusal ? res.error : `Claude 호출 실패: ${res.error}`);
       return { ok: false, error: res.error, doc_id: docId };
     }
-    const d = res.data;
+    let d = res.data;
+    const usage = { ...res.usage };
+    // 원문 대조 — 히든 메뉴 · 코드 · 경로 · 명령 · 버전이 빠졌으면 그 목록을 주고 한 번 더 고쳐 쓰게 한다
+    const lost = missingIn(`${d.title}\n${d.applies_to}\n${d.description_html}`, specificsOf(src));
+    if (lost.length) {
+      const again = await parseStructured({
+        system,
+        prompt: `${ask}\n\n[방금 쓴 초안]\n제목: ${d.title}\nApplies to: ${d.applies_to}\nDescription(HTML):\n${d.description_html}\n\n` +
+          `[원문에 있는데 초안에 빠진 것]\n${lost.map((x) => `- (${x.kind}) ${x.text}`).join("\n")}\n\n` +
+          "위 항목 중 이 문서의 질문 · 해결과 관련된 것은 원문 그대로 알맞은 자리에 넣어 초안 전체를 다시 쓰세요" +
+          "(관련 없는 것 · 사람이나 회사를 특정하는 것은 넣지 않는다). 나머지 내용은 줄이지 마세요.",
+        schema,
+        operation: "SB 문서 초안 보완(원문 대조)",
+        maxTokens: MAX_TOKENS,
+      });
+      if (again.ok) {
+        d = again.data;
+        usage.input_tokens += again.usage.input_tokens;
+        usage.output_tokens += again.usage.output_tokens;
+      }
+    }
+    const res2 = { model: res.model, usage };
     const disclosure = d.disclosure in DISCLOSURES ? d.disclosure : "internal";
     const title = (d.is_troubleshooting ? "[TR] " : "") + d.title.trim();
     await sql`
       UPDATE sb.rm_sb_docs SET
         title = ${title}, is_troubleshooting = ${Boolean(d.is_troubleshooting)}, disclosure = ${disclosure},
         disclosure_reason = ${d.disclosure_reason}, applies_to = ${d.applies_to},
-        description_html = ${sanitizeHtml(d.description_html)}, model = ${res.model || MODEL},
-        input_tokens = ${res.usage.input_tokens}, output_tokens = ${res.usage.output_tokens},
+        description_html = ${sanitizeHtml(d.description_html)}, model = ${res2.model || MODEL},
+        input_tokens = ${res2.usage.input_tokens}, output_tokens = ${res2.usage.output_tokens},
         error = NULL, state = 'draft', generated_at = now()
       WHERE id = ${docId}`;
     console.info(`SB 초안 생성: ${doc.source === "mail" ? `메일 ${doc.mail_thread_id}` : `#${doc.issue_id}`} rev${doc.revision} ${title.slice(0, 60)}`);
